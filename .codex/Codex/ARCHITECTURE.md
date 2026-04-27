@@ -16,23 +16,23 @@ The project uses domain folders instead of shared `Controllers/` and `Services/`
 
 ```text
 zombie_servival-3Dgame_Server/
-¦§¦¡¦¡ Auth/
-¦¢   ¦§¦¡¦¡ AuthController.cs
-¦¢   ¦§¦¡¦¡ IAuthService.cs
-¦¢   ¦§¦¡¦¡ DbAuthService.cs
-¦¢   ¦§¦¡¦¡ IJwtTokenService.cs
-¦¢   ¦§¦¡¦¡ JwtTokenService.cs
-¦¢   ¦¦¦¡¦¡ Models/
-¦§¦¡¦¡ Inventory/
-¦¢   ¦§¦¡¦¡ InventoryController.cs
-¦¢   ¦§¦¡¦¡ IInventoryService.cs
-¦¢   ¦§¦¡¦¡ InventoryService.cs
-¦¢   ¦¦¦¡¦¡ Models/
-¦§¦¡¦¡ Contracts/
-¦¢   ¦§¦¡¦¡ Auth/
-¦¢   ¦¦¦¡¦¡ Inventory/
-¦§¦¡¦¡ Data/
-¦¦¦¡¦¡ Options/
+â”œâ”€â”€ Auth/
+â”‚   â”œâ”€â”€ AuthController.cs
+â”‚   â”œâ”€â”€ IAuthService.cs
+â”‚   â”œâ”€â”€ DbAuthService.cs
+â”‚   â”œâ”€â”€ IJwtTokenService.cs
+â”‚   â”œâ”€â”€ JwtTokenService.cs
+â”‚   â””â”€â”€ Models/
+â”œâ”€â”€ Inventory/
+â”‚   â”œâ”€â”€ InventoryController.cs
+â”‚   â”œâ”€â”€ IInventoryService.cs
+â”‚   â”œâ”€â”€ InventoryService.cs
+â”‚   â””â”€â”€ Models/
+â”œâ”€â”€ Contracts/
+â”‚   â”œâ”€â”€ Auth/
+â”‚   â””â”€â”€ Inventory/
+â”œâ”€â”€ Data/
+â””â”€â”€ Options/
 ```
 
 ## Flow
@@ -81,7 +81,7 @@ Responsibilities:
 - `PlayerSaveData`
 - `PlayerWeaponStates`
 
-SQLite is the only configured provider, and startup uses `Database.EnsureCreated()`.
+MySQL is the configured provider, and startup uses `Database.EnsureCreated()`. 
 
 ## Adding A New Domain
 

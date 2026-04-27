@@ -1,14 +1,14 @@
 ---
 name: efcore-sqlite-persistence
-description: EF Core and SQLite persistence guide for this repository. Use when editing entity configuration, DbContext mappings, relationships, indexes, or startup database behavior.
+description: EF Core and MySQL persistence guide for this repository. Use when editing entity configuration, DbContext mappings, relationships, indexes, or startup database behavior.
 ---
 
-# EF Core + SQLite Persistence Guide
+# EF Core + MySQL Persistence Guide
 
 ## Current Setup
 
 - DbContext: `GameDbContext`
-- Provider: SQLite
+- Provider: MySQL
 - Startup behavior: `Database.EnsureCreated()`
 
 ## Existing Tables And Relationships
@@ -40,6 +40,6 @@ When adding a field:
 1. Update the model
 2. Update `OnModelCreating` constraints if needed
 3. Update DTOs and service mappings
-4. Consider impact on the existing SQLite file and `EnsureCreated()` workflow
+4. Consider impact on the current MySQL schema and `EnsureCreated()` workflow
 
 If a change requires formal schema evolution, call that out clearly instead of silently assuming migrations exist.

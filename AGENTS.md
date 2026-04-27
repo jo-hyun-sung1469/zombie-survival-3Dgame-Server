@@ -1,6 +1,6 @@
 # Zombie Survival Game Server
 
-**한국어로 대화하고 작업합니다.**
+**??볥럢??以????酉釉???臾믩씜??몃빍??**
 
 ## Project Overview
 
@@ -17,23 +17,23 @@ Players fight off zombies coming from all directions. The server handles authent
 
 ```text
 zombie_servival-3Dgame_Server/
-├── Auth/               # Login, logout, registration
-├── Player/             # Character stats, in-game stat increases
-├── Inventory/          # Gold, weapons owned, weapon enhancement/stats
-├── Gacha/              # Roulette, probability, reward grant
-├── GameSession/        # Continue, restart, new game, wave state
-├── Reward/             # Kill count → reward calculation
-├── Zombie/             # Difficulty scaling, wave configuration
-├── Contracts/          # Domain request/response DTOs
-├── Data/               # EF Core DbContext
-├── Options/            # Configuration binding types
-└── Program.cs          # DI, auth, EF Core, OpenAPI pipeline
+????? Auth/               # Login, logout, registration
+????? Player/             # Character stats, in-game stat increases
+????? Inventory/          # Gold, weapons owned, weapon enhancement/stats
+????? Gacha/              # Roulette, probability, reward grant
+????? GameSession/        # Continue, restart, new game, wave state
+????? Reward/             # Kill count ??reward calculation
+????? Zombie/             # Difficulty scaling, wave configuration
+????? Contracts/          # Domain request/response DTOs
+????? Data/               # EF Core DbContext
+????? Options/            # Configuration binding types
+?遺??? Program.cs          # DI, auth, EF Core, OpenAPI pipeline
 ```
 
 ## Tech Stack
 
 - .NET 9 ASP.NET Core Web API
-- EF Core with SQLite
+- EF Core with MySQL
 - JWT Bearer authentication
 - `PasswordHasher<TUser>` for password hashing
 - OpenAPI in development
@@ -46,7 +46,7 @@ zombie_servival-3Dgame_Server/
 
 ## Architecture Conventions
 
-- Modular monolith — one domain per folder, all inside a single project.
+- Modular monolith ??one domain per folder, all inside a single project.
 - Flow: `Controller -> Service -> DbContext`.
 - Controllers handle HTTP concerns only: routing, auth attributes, status codes, model binding.
 - Services contain business rules and database coordination.
@@ -62,12 +62,12 @@ zombie_servival-3Dgame_Server/
 - If claim names change in token generation, update every `User.FindFirst(...)` consumer.
 - Registration returns `409 Conflict` for duplicate usernames.
 - Login returns `401 Unauthorized` for invalid credentials.
-- Never trust a client-supplied player identifier — always read from JWT claims.
+- Never trust a client-supplied player identifier ??always read from JWT claims.
 
 ## Persistence Rules
 
-- SQLite via `GameDbContext`.
-- `Database.EnsureCreated()` at startup — no migrations unless intentionally adopted.
+- MySQL via `GameDbContext`.
+- `Database.EnsureCreated()` at startup ??no migrations unless intentionally adopted.
 - `PlayerSaveData` owns `PlayerWeaponState` through cascade delete.
 - New entities go in the owning domain's `Models/` folder and are registered in `GameDbContext`.
 
@@ -75,26 +75,26 @@ zombie_servival-3Dgame_Server/
 
 | Domain | Status |
 |--------|--------|
-| Auth | ✅ Complete |
-| Inventory | ✅ Complete |
-| Player | 🔲 Planned |
-| Gacha | 🔲 Planned |
-| GameSession | 🔲 Planned |
-| Reward | 🔲 Planned |
-| Zombie | 🔲 Planned |
+| Auth | ??Complete |
+| Inventory | ??Complete |
+| Player | ?逾?Planned |
+| Gacha | ?逾?Planned |
+| GameSession | ?逾?Planned |
+| Reward | ?逾?Planned |
+| Zombie | ?逾?Planned |
 
 ## Practical Notes
 
 - No separate test project. Verification is `dotnet build` + endpoint smoke tests.
-- Avoid hardcoding secrets — JWT settings belong in configuration.
-- Minimal comments only — where logic is not obvious.
+- Avoid hardcoding secrets ??JWT settings belong in configuration.
+- Minimal comments only ??where logic is not obvious.
 
 ## Custom Skills
 
 Skills in `.codex/skills/`:
 
-- `aspnet-api-arch` — domain structure, controller/service rules
-- `jwt-auth-flow` — claims, registration, login rules
-- `player-save-flow` — save/load semantics, mapping rules
-- `efcore-sqlite-persistence` — entity config, query rules
-- `dotnet-server-verify` — build and smoke test workflow
+- `aspnet-api-arch` ??domain structure, controller/service rules
+- `jwt-auth-flow` ??claims, registration, login rules
+- `player-save-flow` ??save/load semantics, mapping rules
+- `efcore-sqlite-persistence` ??entity config, query rules
+- `dotnet-server-verify` ??build and smoke test workflow

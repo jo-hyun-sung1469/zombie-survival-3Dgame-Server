@@ -6,10 +6,10 @@
 |---|---|---|
 | `auth` | Registration, login, JWT issuance, claim handling | `fix(auth): reject duplicate usernames case-insensitively` |
 | `player-data` | Player save endpoints, save DTOs, save mapping | `update(player-data): persist weapon ownership state` |
-| `data` | `GameDbContext`, entity configuration, indexes, relationships | `refactor(data): tighten sqlite entity constraints` |
+| `data` | `GameDbContext`, entity configuration, indexes, relationships | `refactor(data): tighten mysql entity constraints` |
 | `services` | Service-layer changes not limited to one endpoint | `refactor(services): split token creation from credential validation` |
 | `api` | Routing, controller response codes, API contract changes | `update(api): return not found for missing player save data` |
-| `config` | `Program.cs`, app settings, DI, auth pipeline | `update(config): register sqlite db context explicitly` |
+| `config` | `Program.cs`, app settings, DI, auth pipeline | `update(config): register mysql db context explicitly` |
 | `security` | Password hashing, authorization checks, validation hardening | `fix(security): block save requests without userId claim` |
 | `docs` | Documentation-only changes | `docs(docs): describe save-data endpoint flow` |
 | `global` | Cross-cutting changes spanning 3 or more areas | `refactor(global): normalize cancellation token propagation` |
