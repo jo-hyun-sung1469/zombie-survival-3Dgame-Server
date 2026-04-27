@@ -42,9 +42,15 @@ public sealed class AuthController(IAuthService authService, IJwtTokenService jw
     [Authorize]
     public IActionResult Me()
     {
+        var userId = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new { message = "Token does not contain a valid user id." });
+        }
+
         return Ok(new
         {
-            UserId = User.FindFirst("userId")?.Value,
+            UserId = userId,
             UserName = User.Identity?.Name,
             Role = User.FindFirst("role")?.Value
         });
