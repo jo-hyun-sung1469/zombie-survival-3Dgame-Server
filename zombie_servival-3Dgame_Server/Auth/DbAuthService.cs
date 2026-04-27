@@ -14,8 +14,9 @@ public sealed class DbAuthService(GameDbContext dbContext) : IAuthService
         string password,
         CancellationToken cancellationToken)
     {
+        var normalizedUserName = userName.Trim();
         var user = await dbContext.Users
-            .SingleOrDefaultAsync(x => x.UserName.ToLower() == userName.ToLower(), cancellationToken);
+            .SingleOrDefaultAsync(x => x.UserName == normalizedUserName, cancellationToken);
 
         if (user is null)
         {
@@ -40,7 +41,7 @@ public sealed class DbAuthService(GameDbContext dbContext) : IAuthService
     {
         var normalizedUserName = request.UserName.Trim();
         var exists = await dbContext.Users.AnyAsync(
-            x => x.UserName.ToLower() == normalizedUserName.ToLower(),
+            x => x.UserName == normalizedUserName,
             cancellationToken);
 
         if (exists)
