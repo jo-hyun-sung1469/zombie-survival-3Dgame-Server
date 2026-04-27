@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using zombie_servival_3Dgame_Server.Auth;
 using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Gacha;
 using zombie_servival_3Dgame_Server.Inventory;
 using zombie_servival_3Dgame_Server.Options;
 
@@ -45,7 +44,6 @@ builder.Services.AddDbContext<GameDbContext>(options =>
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, DbAuthService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-builder.Services.AddScoped<IGachaService, GachaService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
