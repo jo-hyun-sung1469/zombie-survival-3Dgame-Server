@@ -48,11 +48,11 @@ Scopes:
 
 Description rules:
 
-- Write it in English
+- Write it in Korean
 - Keep it to one subject line
 - No trailing period
-- Prefer imperative wording such as `add jwt claim validation`
-- Avoid past tense like `added` or `fixed`
+- Prefer imperative wording such as `jwt 클레임 검증 추가`
+- Avoid past tense phrasing
 
 ## Commit Flow
 
@@ -60,7 +60,7 @@ Description rules:
 2. Separate unrelated changes before staging.
 3. Group one logical unit per commit.
 4. Stage only the intended files or hunks.
-5. Commit with `git commit -m "type(scope): description"`.
+5. Commit with `git commit -m "type(scope): description"` using a Korean description.
 6. Verify recent history with `git log --oneline -n <count>`.
 
 ## Guardrails
