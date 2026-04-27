@@ -1,0 +1,77 @@
+@zombie_servival_3Dgame_Server_HostAddress = http://localhost:5294
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "userName": "player1",
+  "password": "player1-password"
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "player1",
+  "password": "player1-password"
+}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/me
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/save
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "gold": 1500,
+  "weaponStates": {
+    "Pistol": true,
+    "Shotgun": false,
+    "Rifle": true
+  }
+}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/me
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pool
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/save
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "gold": 400,
+  "weaponStates": {
+    "Pistol": true
+  }
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
+Authorization: Bearer {{accessToken}}
+
+###

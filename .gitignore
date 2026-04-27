@@ -1,0 +1,5 @@
+.idea/
+**/bin/
+**/obj/
+**/temp-build/
+**/game-data.db
