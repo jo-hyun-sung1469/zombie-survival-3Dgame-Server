@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>zombie_servival_3Dgame_Server</RootNamespace>
+        <UserSecretsId>a7ed9f40-7fbb-4f8c-b609-e0b592fddd6c</UserSecretsId>
     </PropertyGroup>
 
     <ItemGroup>
