@@ -35,16 +35,7 @@ public sealed class InventoryService(GameDbContext dbContext, IOptions<GachaOpti
 
         saveData.Gold = request.Gold;
         saveData.UpdatedAtUtc = DateTime.UtcNow;
-
-        dbContext.PlayerWeaponStates.RemoveRange(saveData.WeaponStates);
-        saveData.WeaponStates = request.WeaponStates
-            .OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(x => new PlayerWeaponState
-            {
-                WeaponName = x.Key.Trim(),
-                IsOwned = x.Value
-            })
-            .ToList();
+        ApplyWeaponStates(saveData, request.WeaponStates);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return MapResponse(saveData);
@@ -76,6 +67,40 @@ public sealed class InventoryService(GameDbContext dbContext, IOptions<GachaOpti
 
         throw new InvalidWeaponStateException(
             $"Unsupported weapon names: {string.Join(", ", invalidWeaponNames)}");
+    }
+
+    private void ApplyWeaponStates(PlayerSaveData saveData, IReadOnlyDictionary<string, bool> weaponStates)
+    {
+        var requestedStates = weaponStates
+            .ToDictionary(x => x.Key.Trim(), x => x.Value, StringComparer.OrdinalIgnoreCase);
+
+        var existingStates = saveData.WeaponStates
+            .ToDictionary(x => x.WeaponName, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var requestedState in requestedStates)
+        {
+            if (existingStates.TryGetValue(requestedState.Key, out var existingState))
+            {
+                existingState.IsOwned = requestedState.Value;
+                continue;
+            }
+
+            saveData.WeaponStates.Add(new PlayerWeaponState
+            {
+                WeaponName = requestedState.Key,
+                IsOwned = requestedState.Value
+            });
+        }
+
+        var statesToRemove = saveData.WeaponStates
+            .Where(x => !requestedStates.ContainsKey(x.WeaponName))
+            .ToList();
+
+        foreach (var stateToRemove in statesToRemove)
+        {
+            saveData.WeaponStates.Remove(stateToRemove);
+            dbContext.PlayerWeaponStates.Remove(stateToRemove);
+        }
     }
 
     private static PlayerSaveResponse MapResponse(PlayerSaveData saveData)
