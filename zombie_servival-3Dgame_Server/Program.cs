@@ -45,6 +45,7 @@ builder.Services.AddDbContext<GameDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, DbAuthService>();
+builder.Services.AddScoped<IPlayerSaveDataStore, PlayerSaveDataStore>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IGachaService, GachaService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

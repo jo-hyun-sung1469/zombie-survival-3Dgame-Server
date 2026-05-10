@@ -6,7 +6,10 @@ using zombie_servival_3Dgame_Server.Options;
 
 namespace zombie_servival_3Dgame_Server.Inventory;
 
-public sealed class InventoryService(GameDbContext dbContext, IOptions<GachaOptions> gachaOptions) : IInventoryService
+public sealed class InventoryService(
+    GameDbContext dbContext,
+    IPlayerSaveDataStore playerSaveDataStore,
+    IOptions<GachaOptions> gachaOptions) : IInventoryService
 {
     private readonly HashSet<string> _validWeaponNames = gachaOptions.Value.Rewards
         .Select(x => x.RewardName.Trim())
@@ -19,19 +22,7 @@ public sealed class InventoryService(GameDbContext dbContext, IOptions<GachaOpti
         CancellationToken cancellationToken)
     {
         ValidateWeaponStates(request.WeaponStates);
-
-        var saveData = await dbContext.PlayerSaveData
-            .Include(x => x.WeaponStates)
-            .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
-
-        if (saveData is null)
-        {
-            saveData = new PlayerSaveData
-            {
-                PlayerId = playerId
-            };
-            dbContext.PlayerSaveData.Add(saveData);
-        }
+        var saveData = await playerSaveDataStore.GetOrCreateAsync(playerId, cancellationToken);
 
         saveData.Gold = request.Gold;
         saveData.UpdatedAtUtc = DateTime.UtcNow;

@@ -7,7 +7,10 @@ using zombie_servival_3Dgame_Server.Options;
 
 namespace zombie_servival_3Dgame_Server.Gacha;
 
-public sealed class GachaService(GameDbContext dbContext, IOptions<GachaOptions> gachaOptions) : IGachaService
+public sealed class GachaService(
+    GameDbContext dbContext,
+    IPlayerSaveDataStore playerSaveDataStore,
+    IOptions<GachaOptions> gachaOptions) : IGachaService
 {
     private readonly GachaOptions _gachaOptions = gachaOptions.Value;
 
@@ -41,19 +44,7 @@ public sealed class GachaService(GameDbContext dbContext, IOptions<GachaOptions>
 
     public async Task<GachaPullResult> PullAsync(string playerId, CancellationToken cancellationToken)
     {
-        var saveData = await dbContext.PlayerSaveData
-            .Include(x => x.WeaponStates)
-            .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
-
-        if (saveData is null)
-        {
-            saveData = new PlayerSaveData
-            {
-                PlayerId = playerId,
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-            dbContext.PlayerSaveData.Add(saveData);
-        }
+        var saveData = await playerSaveDataStore.GetOrCreateAsync(playerId, cancellationToken);
 
         if (saveData.Gold < _gachaOptions.PullCost)
         {
