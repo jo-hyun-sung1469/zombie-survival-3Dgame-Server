@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using zombie_servival_3Dgame_Server.Common;
 using zombie_servival_3Dgame_Server.Auth;
 using zombie_servival_3Dgame_Server.Contracts.Auth;
 
@@ -18,7 +19,7 @@ public sealed class AuthController(IAuthService authService, IJwtTokenService jw
         var registeredUser = await authService.RegisterAsync(request, cancellationToken);
         if (registeredUser is null)
         {
-            return Conflict(new { message = "Username already exists." });
+            return ApiProblemDetails.Create(StatusCodes.Status409Conflict, "Username already exists.");
         }
 
         return CreatedAtAction(nameof(Me), new { }, registeredUser);
@@ -31,7 +32,7 @@ public sealed class AuthController(IAuthService authService, IJwtTokenService jw
         var user = await authService.ValidateCredentialsAsync(request.UserName, request.Password, cancellationToken);
         if (user is null)
         {
-            return Unauthorized(new { message = "Invalid username or password." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Invalid username or password.");
         }
 
         var token = jwtTokenService.CreateToken(user);
@@ -45,7 +46,7 @@ public sealed class AuthController(IAuthService authService, IJwtTokenService jw
         var userId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(userId))
         {
-            return Unauthorized(new { message = "Token does not contain a valid user id." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
         }
 
         return Ok(new
