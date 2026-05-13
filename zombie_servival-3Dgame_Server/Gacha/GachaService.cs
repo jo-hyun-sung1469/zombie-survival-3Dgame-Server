@@ -10,9 +10,11 @@ namespace zombie_servival_3Dgame_Server.Gacha;
 public sealed class GachaService(
     GameDbContext dbContext,
     IPlayerSaveDataStore playerSaveDataStore,
-    IOptions<GachaOptions> gachaOptions) : IGachaService
+    IOptions<GachaOptions> gachaOptions,
+    IOptions<FirearmOptions> firearmOptions) : IGachaService
 {
     private readonly GachaOptions _gachaOptions = gachaOptions.Value;
+    private readonly IReadOnlyList<FirearmDefinitionOption> _firearms = firearmOptions.Value.Weapons;
 
     public async Task<GachaPoolResponse> GetPoolAsync(string playerId, CancellationToken cancellationToken)
     {
@@ -23,13 +25,14 @@ public sealed class GachaService(
 
         var currentGold = saveData?.Gold ?? 0;
         var ownedWeapons = ToOwnedWeaponSet(saveData);
-        var rewards = _gachaOptions.Rewards
-            .OrderByDescending(x => x.Probability)
+        var rewards = _firearms
+            .Where(x => x.GachaProbability > 0)
+            .OrderByDescending(x => x.GachaProbability)
             .Select(x => new GachaRewardProbabilityResponse
             {
-                RewardName = x.RewardName,
-                Probability = x.Probability,
-                IsOwned = ownedWeapons.Contains(x.RewardName)
+                RewardName = x.Name,
+                Probability = x.GachaProbability,
+                IsOwned = ownedWeapons.Contains(x.Name)
             })
             .ToList();
 
@@ -57,8 +60,8 @@ public sealed class GachaService(
         }
 
         var ownedWeapons = ToOwnedWeaponSet(saveData);
-        var availableRewards = _gachaOptions.Rewards
-            .Where(x => !ownedWeapons.Contains(x.RewardName))
+        var availableRewards = _firearms
+            .Where(x => x.GachaProbability > 0 && !ownedWeapons.Contains(x.Name))
             .ToList();
 
         if (availableRewards.Count == 0)
@@ -102,7 +105,7 @@ public sealed class GachaService(
             {
                 RewardName = rewardName,
                 CurrentGold = saveData.Gold,
-                RemainingRewardCount = _gachaOptions.Rewards.Count(x => !string.Equals(x.RewardName, rewardName, StringComparison.OrdinalIgnoreCase) && !ownedWeapons.Contains(x.RewardName)),
+                RemainingRewardCount = _firearms.Count(x => x.GachaProbability > 0 && !string.Equals(x.Name, rewardName, StringComparison.OrdinalIgnoreCase) && !ownedWeapons.Contains(x.Name)),
                 UpdatedAtUtc = saveData.UpdatedAtUtc
             }
         };
@@ -117,20 +120,20 @@ public sealed class GachaService(
             ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string SelectReward(IReadOnlyList<GachaRewardOption> rewards)
+    private static string SelectReward(IReadOnlyList<FirearmDefinitionOption> rewards)
     {
-        var totalWeight = rewards.Sum(x => x.Probability);
+        var totalWeight = rewards.Sum(x => x.GachaProbability);
         var roll = Random.Shared.NextDouble() * totalWeight;
 
         foreach (var reward in rewards)
         {
-            roll -= reward.Probability;
+            roll -= reward.GachaProbability;
             if (roll <= 0)
             {
-                return reward.RewardName;
+                return reward.Name;
             }
         }
 
-        return rewards[^1].RewardName;
+        return rewards[^1].Name;
     }
 }

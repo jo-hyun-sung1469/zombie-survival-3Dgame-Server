@@ -9,10 +9,10 @@ namespace zombie_servival_3Dgame_Server.Inventory;
 public sealed class InventoryService(
     GameDbContext dbContext,
     IPlayerSaveDataStore playerSaveDataStore,
-    IOptions<GachaOptions> gachaOptions) : IInventoryService
+    IOptions<FirearmOptions> firearmOptions) : IInventoryService
 {
-    private readonly HashSet<string> _validWeaponNames = gachaOptions.Value.Rewards
-        .Select(x => x.RewardName.Trim())
+    private readonly HashSet<string> _validWeaponNames = firearmOptions.Value.Weapons
+        .Select(x => x.Name.Trim())
         .Where(x => !string.IsNullOrWhiteSpace(x))
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
