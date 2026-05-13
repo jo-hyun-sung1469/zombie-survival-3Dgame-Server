@@ -20,15 +20,8 @@ public sealed class InventoryController(IInventoryService inventoryService) : Co
             return Unauthorized(new { message = "Token does not contain a valid user id." });
         }
 
-        try
-        {
-            var savedData = await inventoryService.SaveAsync(playerId, request, cancellationToken);
-            return Ok(savedData);
-        }
-        catch (InvalidWeaponStateException exception)
-        {
-            return BadRequest(new { message = exception.Message });
-        }
+        var savedData = await inventoryService.SaveAsync(playerId, request, cancellationToken);
+        return Ok(savedData);
     }
 
     [HttpGet("me")]
