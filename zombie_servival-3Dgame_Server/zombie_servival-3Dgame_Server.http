@@ -33,9 +33,9 @@ Authorization: Bearer {{accessToken}}
 {
   "gold": 1500,
   "weaponStates": {
-    "Pistol": true,
     "Shotgun": false,
-    "Rifle": true
+    "SMG": true,
+    "AssaultRifle": true
   }
 }
 
@@ -53,6 +53,18 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/firearms
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/firearms/Shotgun
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
 Authorization: Bearer {{accessToken}}
 
@@ -65,7 +77,7 @@ Authorization: Bearer {{accessToken}}
 {
   "gold": 400,
   "weaponStates": {
-    "Pistol": true
+    "Shotgun": true
   }
 }
 
