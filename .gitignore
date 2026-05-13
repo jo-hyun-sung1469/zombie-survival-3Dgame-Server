@@ -2,4 +2,5 @@
 **/bin/
 **/obj/
 **/temp-build/
-**/game-data.db
+**/game-data.db/
+**/appsettings.Development.json

@@ -9,90 +9,88 @@ description: >
 
 ## Audit Scope
 
-### 1. Anti-Cheat (Game Server Specific)
+### 1. Anti-Cheat
 
-```
-Speed / Position Validation
-  - Is player movement speed within server-defined thresholds?
-  - Does the server independently verify client-sent coordinates?
-  - Is there detection logic for teleportation / position jumping?
+```text
+Movement Validation
+  - Is movement speed checked against server-defined thresholds?
+  - Does the server independently validate client-sent position state?
+  - Is impossible movement detected and rejected?
 
 Damage Validation
   - Is damage value never accepted from the client and applied directly?
   - Are weapon stats and damage calculations performed server-side?
-  - Is there a maximum damage cap check?
+  - Is there a maximum damage or sanity check?
 
 Gacha Manipulation Prevention
-  - Is the RNG seed generated server-side only?
-  - Can the client not modify the probability table?
-  - Are gacha results recorded in server logs?
+  - Is RNG generated server-side only?
+  - Can the client avoid modifying the probability table?
+  - Are reward decisions based on server configuration only?
 ```
 
 ### 2. Input Validation
 
-```
-Packet Validation (Networking layer)
-  - Is there an upper limit on packet size?
-  - Are packets with missing required fields rejected immediately?
-  - Is the session terminated on receipt of a malformed packet?
+```text
+API Input
+  - Are required fields validated before business logic runs?
+  - Are negative quantities and out-of-range values rejected?
+  - Are identifiers like PlayerId and weapon names re-validated server-side?
 
 Business Input
-  - Are negative quantities and out-of-range values rejected?
-  - Are identifiers like PlayerId and ItemId re-validated server-side?
+  - Are config-backed catalogs used to validate client-submitted identifiers?
+  - Are unauthorized resources rejected even if the client guesses valid names?
 ```
 
 ### 3. Authentication / Session
 
-```
-- Are session tokens generated server-side?
-- Are expired sessions invalidated immediately?
-- Is concurrent login from the same account handled?
-- Are session IDs unpredictable? (GUID or cryptographic random)
+```text
+- Are JWT settings loaded from configuration instead of source code?
+- Does startup fail fast when JWT secret or connection string is missing?
+- Do authenticated endpoints reject missing or invalid `userId` claims?
+- Are role and name claims read consistently across controllers?
 ```
 
 ### 4. Hardcoded Secret Detection
 
 Patterns to check:
+
 ```csharp
-// ❌ Remove immediately
 var secret = "my-secret-key-123";
 const string JwtKey = "hardcoded-jwt-secret";
 string connStr = "Server=prod.db;Password=P@ssw0rd";
 ```
 
 Correct approach:
+
 ```csharp
-// ✅ Load from environment variable or configuration
 var secret = configuration["Jwt:SecretKey"]
     ?? throw new InvalidOperationException("JWT secret key is not configured.");
 ```
 
 ### 5. Rate Limiting
 
-```
+```text
 - Is there a rate limit on gacha requests?
 - Is there a login attempt limit?
-- Is per-packet rate limiting present in the Networking layer?
+- Is abuse control present for repeated expensive endpoints?
 ```
-
----
 
 ## Audit Output Format
 
-```
+```text
 ## Security Audit Results
 
-### 🚨 Critical — Immediate fix required
-- [item] Problem description + specific fix
+### Critical
+- Problem description + specific fix
 
-### ⚠️ Warning — Fix recommended
-- [item] Problem description + recommended approach
+### Warning
+- Problem description + recommended approach
 
-### ℹ️ Info — Advisory
-- [item] Improvement suggestion
+### Info
+- Improvement suggestion
 
-### ✅ No Issues
-- List of items that passed
+### No Issues
+- Items that passed
 ```
 
 If any Critical items are found, explicitly state: **Do not merge until resolved.**

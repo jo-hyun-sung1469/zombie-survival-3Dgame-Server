@@ -7,41 +7,39 @@ description: Architecture guide for this ASP.NET Core game server. Use when addi
 
 ## Domain Structure
 
-Each feature lives in its own domain folder. All domains follow the same internal layout.
+Each feature lives in its own domain folder. Keep folders aligned with the runnable project layout.
 
-```
+```text
 zombie_servival-3Dgame_Server/
-├── Auth/               # Login, logout, registration (complete)
-├── Player/             # Character stats, in-game stat increases
-├── Inventory/          # Gold, weapons owned, weapon enhancement/stats
-├── Gacha/              # Roulette, probability, reward grant
-├── GameSession/        # Continue, restart, new game, wave state
-├── Reward/             # Kill count → reward calculation
-├── Zombie/             # Difficulty scaling, wave configuration
-├── Contracts/          # Shared request/response DTOs (if cross-domain)
-├── Data/               # GameDbContext
-└── Options/            # Configuration binding classes
+- Auth/         # Login, registration, JWT token flow
+- Player/       # Player stats and player-facing state
+- Firearm/      # Firearm stat catalog and firearm-facing APIs
+- Inventory/    # Gold, owned weapons, save data
+- Gacha/        # Pull logic and reward pool
+- Contracts/    # Request/response DTOs by domain
+- Data/         # GameDbContext and EF Core mappings
+- Options/      # Configuration binding classes
 ```
 
 ## Internal Layout Per Domain
 
-```
+```text
 {Domain}/
-├── {Domain}Controller.cs
-├── {Domain}Service.cs        # interface
-├── {Domain}ServiceImpl.cs    # implementation (or I{Domain}Service pattern)
-└── Models/                   # persistence entities for this domain
+- {Domain}Controller.cs
+- I{Domain}Service.cs
+- {Domain}Service.cs
+- Models/        # persistence entities when the domain owns DB tables
 ```
 
-DTOs for a domain go in `Contracts/{Domain}/` if shared, or inline in the domain folder if private.
+DTOs for a domain go in `Contracts/{Domain}/`.
 
 ## Preferred Flow
 
-`Controller → Service → DbContext`
+`Controller -> Service -> DbContext or Options`
 
-- Keep controllers thin — routing, auth attributes, status codes, model binding only.
-- Do not put HTTP-specific return types inside services.
-- Services own business rules and data loading/saving.
+- Keep controllers thin: routing, auth attributes, status codes, and model binding only.
+- Do not return HTTP-specific types from services.
+- Services own business rules, validation coordination, and persistence access.
 
 ## Controller Rules
 
@@ -49,30 +47,34 @@ DTOs for a domain go in `Contracts/{Domain}/` if shared, or inline in the domain
 - Use constructor injection.
 - Keep routes explicit and stable.
 - Accept `CancellationToken` in async actions and pass it through.
-- Use `ActionResult<T>` when returning different status codes.
+- Use `ActionResult<T>` when returning multiple status codes.
 - Read player identity from JWT claims, never from client-supplied body fields.
 
 ## Service Rules
 
 - One service per domain area.
-- Keep token creation in `JwtTokenService`, auth logic in `DbAuthService`.
-- New domains get their own service — do not extend existing services for unrelated features.
+- Keep token creation in `JwtTokenService` and auth logic in `DbAuthService`.
+- Prefer `IOptions<T>` for configuration-backed catalogs such as gacha and firearm definitions.
+- New domains get their own service. Do not overload unrelated existing services.
 
 ## DTO Rules
 
 - Request DTOs use validation attributes where appropriate.
 - Preserve response shape unless the task explicitly asks for an API contract change.
-- Use `Gold` as non-negative. Do not trust client-supplied player identifiers when the JWT claim provides it.
+- Keep response DTOs immutable with `init` setters when practical.
+- Do not trust client-supplied player identifiers when the JWT claim already provides the identity.
 
-## Adding a New Domain
+## Adding A New Domain
 
 1. Create the domain folder under the project root.
-2. Add `{Domain}Controller.cs`, `{Domain}Service.cs`, and models.
-3. Register the service in `Program.cs`.
-4. Add any new entities to `GameDbContext` and update `OnModelCreating`.
+2. Add controller, service interface, and service implementation.
+3. Add DTOs under `Contracts/{Domain}/`.
+4. Register the service in `Program.cs`.
+5. Add entities and EF mappings only if the new domain persists data.
 
 ## `Program.cs` Rules
 
 - Register all feature services through DI here.
 - Keep auth, authorization, controllers, DbContext, and OpenAPI setup centralized.
+- Bind configuration option classes here for new catalogs or tunable values.
 - Every new service must be wired in `Program.cs` immediately.
