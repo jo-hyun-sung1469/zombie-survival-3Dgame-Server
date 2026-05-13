@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using zombie_servival_3Dgame_Server.Common;
 using zombie_servival_3Dgame_Server.Contracts.Player;
 
 namespace zombie_servival_3Dgame_Server.Player;
@@ -15,7 +16,7 @@ public sealed class PlayerController(IPlayerService playerService) : ControllerB
         var playerId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(playerId))
         {
-            return Unauthorized(new { message = "Token does not contain a valid user id." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
         }
 
         var response = await playerService.GetStatsAsync(playerId, cancellationToken);

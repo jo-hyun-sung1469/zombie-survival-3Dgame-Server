@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using zombie_servival_3Dgame_Server.Common;
 using zombie_servival_3Dgame_Server.Contracts.Inventory;
 
 namespace zombie_servival_3Dgame_Server.Inventory;
@@ -17,7 +18,7 @@ public sealed class InventoryController(IInventoryService inventoryService) : Co
         var playerId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(playerId))
         {
-            return Unauthorized(new { message = "Token does not contain a valid user id." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
         }
 
         var savedData = await inventoryService.SaveAsync(playerId, request, cancellationToken);
@@ -30,13 +31,13 @@ public sealed class InventoryController(IInventoryService inventoryService) : Co
         var playerId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(playerId))
         {
-            return Unauthorized(new { message = "Token does not contain a valid user id." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
         }
 
         var saveData = await inventoryService.GetByPlayerIdAsync(playerId, cancellationToken);
         if (saveData is null)
         {
-            return NotFound(new { message = "No save data found for this player." });
+            return ApiProblemDetails.Create(StatusCodes.Status404NotFound, "No save data found for this player.");
         }
 
         return Ok(saveData);

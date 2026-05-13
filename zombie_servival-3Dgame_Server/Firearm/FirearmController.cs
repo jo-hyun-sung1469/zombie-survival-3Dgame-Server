@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using zombie_servival_3Dgame_Server.Common;
 using zombie_servival_3Dgame_Server.Contracts.Firearm;
 
 namespace zombie_servival_3Dgame_Server.Firearm;
@@ -24,7 +25,7 @@ public sealed class FirearmController(IFirearmService firearmService) : Controll
         var response = await firearmService.GetByNameAsync(weaponName, cancellationToken);
         if (response is null)
         {
-            return NotFound(new { message = "Firearm stats were not found." });
+            return ApiProblemDetails.Create(StatusCodes.Status404NotFound, "Firearm stats were not found.");
         }
 
         return Ok(response);
