@@ -5,7 +5,7 @@ using zombie_servival_3Dgame_Server.Contracts.Player;
 namespace zombie_servival_3Dgame_Server.Player;
 
 [ApiController]
-[Route("api/player")]
+[Route("api/")]
 [Authorize]
 public sealed class PlayerController(IPlayerService playerService) : ControllerBase
 {
