@@ -105,7 +105,7 @@ public sealed class GachaService(
             {
                 RewardName = rewardName,
                 CurrentGold = saveData.Gold,
-                RemainingRewardCount = _firearms.Count(x => x.GachaProbability > 0 && !string.Equals(x.Name, rewardName, StringComparison.OrdinalIgnoreCase) && !ownedWeapons.Contains(x.Name)),
+                RemainingRewardCount = availableRewards.Count - 1,
                 UpdatedAtUtc = saveData.UpdatedAtUtc
             }
         };
