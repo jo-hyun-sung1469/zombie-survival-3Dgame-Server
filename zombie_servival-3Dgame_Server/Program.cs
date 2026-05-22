@@ -4,14 +4,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using zombie_servival_3Dgame_Server.Auth;
 using zombie_servival_3Dgame_Server.Data;
+using zombie_servival_3Dgame_Server.Firearm;
 using zombie_servival_3Dgame_Server.Gacha;
 using zombie_servival_3Dgame_Server.Inventory;
 using zombie_servival_3Dgame_Server.Options;
+using zombie_servival_3Dgame_Server.Player;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<GachaOptions>(builder.Configuration.GetSection(GachaOptions.SectionName));
+builder.Services.Configure<FirearmOptions>(builder.Configuration.GetSection(FirearmOptions.SectionName));
+builder.Services.Configure<PlayerOptions>(builder.Configuration.GetSection(PlayerOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                  ?? throw new InvalidOperationException("JWT settings are missing.");
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
@@ -44,8 +49,11 @@ builder.Services.AddDbContext<GameDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, DbAuthService>();
+builder.Services.AddScoped<IPlayerSaveDataStore, PlayerSaveDataStore>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IGachaService, GachaService>();
+builder.Services.AddSingleton<IFirearmService, FirearmService>();
+builder.Services.AddSingleton<IPlayerService, PlayerService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 

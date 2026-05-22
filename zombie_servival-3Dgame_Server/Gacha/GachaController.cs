@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using zombie_servival_3Dgame_Server.Common;
 using zombie_servival_3Dgame_Server.Contracts.Gacha;
 
 namespace zombie_servival_3Dgame_Server.Gacha;
@@ -15,7 +16,7 @@ public sealed class GachaController(IGachaService gachaService) : ControllerBase
         var playerId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(playerId))
         {
-            return Unauthorized(new { message = "Token does not contain a valid user id." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
         }
 
         var pool = await gachaService.GetPoolAsync(playerId, cancellationToken);
@@ -28,23 +29,25 @@ public sealed class GachaController(IGachaService gachaService) : ControllerBase
         var playerId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(playerId))
         {
-            return Unauthorized(new { message = "Token does not contain a valid user id." });
+            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
         }
 
         var result = await gachaService.PullAsync(playerId, cancellationToken);
         if (result.Status == GachaPullStatus.Completed)
         {
-            return Conflict(new { message = "All gacha rewards have already been obtained." });
+            return ApiProblemDetails.Create(StatusCodes.Status409Conflict, "All gacha rewards have already been obtained.");
         }
 
         if (result.Status == GachaPullStatus.InsufficientGold)
         {
-            return BadRequest(new
-            {
-                message = "Not enough gold to use the gacha.",
-                requiredGold = result.RequiredGold,
-                currentGold = result.CurrentGold
-            });
+            return ApiProblemDetails.Create(
+                StatusCodes.Status400BadRequest,
+                "Not enough gold to use the gacha.",
+                extensions: new Dictionary<string, object?>
+                {
+                    ["requiredGold"] = result.RequiredGold,
+                    ["currentGold"] = result.CurrentGold
+                });
         }
 
         return Ok(result.Response);

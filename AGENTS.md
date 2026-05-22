@@ -96,5 +96,5 @@ Skills in `.codex/skills/`:
 - `aspnet-api-arch` ??domain structure, controller/service rules
 - `jwt-auth-flow` ??claims, registration, login rules
 - `player-save-flow` ??save/load semantics, mapping rules
-- `efcore-sqlite-persistence` ??entity config, query rules
+- `efcore-mysql-persistence` ??entity config, query rules
 - `dotnet-server-verify` ??build and smoke test workflow

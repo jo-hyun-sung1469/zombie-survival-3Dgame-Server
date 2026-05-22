@@ -1,22 +1,20 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using zombie_servival_3Dgame_Server.Contracts.Gacha;
 using zombie_servival_3Dgame_Server.Data;
 using zombie_servival_3Dgame_Server.Inventory;
+using zombie_servival_3Dgame_Server.Options;
 
 namespace zombie_servival_3Dgame_Server.Gacha;
 
-public sealed class GachaService(GameDbContext dbContext) : IGachaService
+public sealed class GachaService(
+    GameDbContext dbContext,
+    IPlayerSaveDataStore playerSaveDataStore,
+    IOptions<GachaOptions> gachaOptions,
+    IOptions<FirearmOptions> firearmOptions) : IGachaService
 {
-    private const int PullCost = 100;
-
-    private static readonly (string RewardName, double Probability)[] RewardTable =
-    [
-        ("Shotgun", 0.35),
-        ("SMG", 0.25),
-        ("AssaultRifle", 0.2),
-        ("SniperRifle", 0.12),
-        ("RocketLauncher", 0.08)
-    ];
+    private readonly GachaOptions _gachaOptions = gachaOptions.Value;
+    private readonly IReadOnlyList<FirearmDefinitionOption> _firearms = firearmOptions.Value.Weapons;
 
     public async Task<GachaPoolResponse> GetPoolAsync(string playerId, CancellationToken cancellationToken)
     {
@@ -27,19 +25,20 @@ public sealed class GachaService(GameDbContext dbContext) : IGachaService
 
         var currentGold = saveData?.Gold ?? 0;
         var ownedWeapons = ToOwnedWeaponSet(saveData);
-        var rewards = RewardTable
-            .OrderByDescending(x => x.Probability)
+        var rewards = _firearms
+            .Where(x => x.GachaProbability > 0)
+            .OrderByDescending(x => x.GachaProbability)
             .Select(x => new GachaRewardProbabilityResponse
             {
-                RewardName = x.RewardName,
-                Probability = x.Probability,
-                IsOwned = ownedWeapons.Contains(x.RewardName)
+                RewardName = x.Name,
+                Probability = x.GachaProbability,
+                IsOwned = ownedWeapons.Contains(x.Name)
             })
             .ToList();
 
         return new GachaPoolResponse
         {
-            PullCost = PullCost,
+            PullCost = _gachaOptions.PullCost,
             CurrentGold = currentGold,
             RemainingRewardCount = rewards.Count(x => !x.IsOwned),
             Rewards = rewards
@@ -48,33 +47,21 @@ public sealed class GachaService(GameDbContext dbContext) : IGachaService
 
     public async Task<GachaPullResult> PullAsync(string playerId, CancellationToken cancellationToken)
     {
-        var saveData = await dbContext.PlayerSaveData
-            .Include(x => x.WeaponStates)
-            .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
+        var saveData = await playerSaveDataStore.GetOrCreateAsync(playerId, cancellationToken);
 
-        if (saveData is null)
-        {
-            saveData = new PlayerSaveData
-            {
-                PlayerId = playerId,
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-            dbContext.PlayerSaveData.Add(saveData);
-        }
-
-        if (saveData.Gold < PullCost)
+        if (saveData.Gold < _gachaOptions.PullCost)
         {
             return new GachaPullResult
             {
                 Status = GachaPullStatus.InsufficientGold,
-                RequiredGold = PullCost,
+                RequiredGold = _gachaOptions.PullCost,
                 CurrentGold = saveData.Gold
             };
         }
 
         var ownedWeapons = ToOwnedWeaponSet(saveData);
-        var availableRewards = RewardTable
-            .Where(x => !ownedWeapons.Contains(x.RewardName))
+        var availableRewards = _firearms
+            .Where(x => x.GachaProbability > 0 && !ownedWeapons.Contains(x.Name))
             .ToList();
 
         if (availableRewards.Count == 0)
@@ -82,13 +69,13 @@ public sealed class GachaService(GameDbContext dbContext) : IGachaService
             return new GachaPullResult
             {
                 Status = GachaPullStatus.Completed,
-                RequiredGold = PullCost,
+                RequiredGold = _gachaOptions.PullCost,
                 CurrentGold = saveData.Gold
             };
         }
 
         var rewardName = SelectReward(availableRewards);
-        saveData.Gold -= PullCost;
+        saveData.Gold -= _gachaOptions.PullCost;
         saveData.UpdatedAtUtc = DateTime.UtcNow;
 
         var weaponState = saveData.WeaponStates
@@ -112,13 +99,13 @@ public sealed class GachaService(GameDbContext dbContext) : IGachaService
         return new GachaPullResult
         {
             Status = GachaPullStatus.Success,
-            RequiredGold = PullCost,
+            RequiredGold = _gachaOptions.PullCost,
             CurrentGold = saveData.Gold,
             Response = new GachaPullResponse
             {
                 RewardName = rewardName,
                 CurrentGold = saveData.Gold,
-                RemainingRewardCount = RewardTable.Count(x => !string.Equals(x.RewardName, rewardName, StringComparison.OrdinalIgnoreCase) && !ownedWeapons.Contains(x.RewardName)),
+                RemainingRewardCount = availableRewards.Count - 1,
                 UpdatedAtUtc = saveData.UpdatedAtUtc
             }
         };
@@ -133,20 +120,20 @@ public sealed class GachaService(GameDbContext dbContext) : IGachaService
             ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string SelectReward(IReadOnlyList<(string RewardName, double Probability)> rewards)
+    private static string SelectReward(IReadOnlyList<FirearmDefinitionOption> rewards)
     {
-        var totalWeight = rewards.Sum(x => x.Probability);
+        var totalWeight = rewards.Sum(x => x.GachaProbability);
         var roll = Random.Shared.NextDouble() * totalWeight;
 
         foreach (var reward in rewards)
         {
-            roll -= reward.Probability;
+            roll -= reward.GachaProbability;
             if (roll <= 0)
             {
-                return reward.RewardName;
+                return reward.Name;
             }
         }
 
-        return rewards[^1].RewardName;
+        return rewards[^1].Name;
     }
 }

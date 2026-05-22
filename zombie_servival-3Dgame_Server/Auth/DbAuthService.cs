@@ -41,7 +41,7 @@ public sealed class DbAuthService(GameDbContext dbContext) : IAuthService
     {
         var normalizedUserName = request.UserName.Trim();
         var exists = await dbContext.Users.AnyAsync(
-            x => x.UserName == normalizedUserName,
+            x => string.Equals(x.UserName, normalizedUserName, StringComparison.OrdinalIgnoreCase),
             cancellationToken);
 
         if (exists)

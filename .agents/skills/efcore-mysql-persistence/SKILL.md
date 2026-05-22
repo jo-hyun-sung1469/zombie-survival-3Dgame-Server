@@ -1,5 +1,5 @@
 ---
-name: efcore-sqlite-persistence
+name: efcore-mysql-persistence
 description: EF Core and MySQL persistence guide for this repository. Use when editing entity configuration, DbContext mappings, relationships, indexes, or startup database behavior.
 ---
 

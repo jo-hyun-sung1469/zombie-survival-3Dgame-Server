@@ -29,15 +29,16 @@ Both endpoints require authorization and identify the player from the JWT `userI
 
 ## Save Semantics
 
-Current save behavior is replace-all:
+Current save behavior is key-based upsert:
 
 1. Load the player's save row with `WeaponStates`
 2. Create the root save row if missing
-3. Update scalar fields
-4. Delete existing weapon-state rows
-5. Recreate weapon-state rows from the incoming dictionary
+3. Update scalar fields such as `Gold`
+4. Update existing weapon rows by weapon name
+5. Add newly requested weapon rows
+6. Remove rows omitted from the incoming dictionary
 
-Preserve this behavior unless the task explicitly asks for merge or patch semantics.
+Preserve this behavior unless the task explicitly asks for patch semantics.
 
 ## Mapping Rules
 
@@ -51,4 +52,5 @@ When changing this flow, keep request/response shape, persistence shape, and sor
 
 - `Gold` is non-negative
 - `WeaponStates` is required
+- Weapon names must exist in the configured firearm catalog
 - Do not trust a client-supplied player identifier when the authenticated claim already provides it
