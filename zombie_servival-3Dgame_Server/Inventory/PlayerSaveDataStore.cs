@@ -9,6 +9,7 @@ public sealed class PlayerSaveDataStore(GameDbContext dbContext) : IPlayerSaveDa
     {
         var saveData = await dbContext.PlayerSaveData
             .Include(x => x.WeaponStates)
+            .ThenInclude(x => x.FirearmDefinition)
             .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
 
         if (saveData is not null)

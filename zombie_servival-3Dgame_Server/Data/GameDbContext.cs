@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using zombie_servival_3Dgame_Server.Auth;
+using zombie_servival_3Dgame_Server.Firearm.Models;
 using zombie_servival_3Dgame_Server.Inventory;
 
 namespace zombie_servival_3Dgame_Server.Data;
@@ -9,6 +10,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<PlayerSaveData> PlayerSaveData => Set<PlayerSaveData>();
     public DbSet<PlayerWeaponState> PlayerWeaponStates => Set<PlayerWeaponState>();
+    public DbSet<FirearmDefinition> FirearmDefinitions => Set<FirearmDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,8 +42,39 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
         modelBuilder.Entity<PlayerWeaponState>(entity =>
         {
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.PlayerSaveDataId, x.FirearmDefinitionId }).IsUnique();
+            entity.HasIndex(x => x.FirearmDefinitionId);
+            entity.Property(x => x.FirearmDefinitionId).IsRequired();
             entity.Property(x => x.WeaponName).HasMaxLength(100).IsRequired();
             entity.Property(x => x.IsOwned).IsRequired();
+            entity.Property(x => x.WeaponLevel).IsRequired();
+            entity.Property(x => x.Damage).IsRequired();
+            entity.Property(x => x.FireRate).IsRequired();
+            entity.Property(x => x.MagazineSize).IsRequired();
+            entity.Property(x => x.ReloadTimeSeconds).IsRequired();
+            entity.Property(x => x.RangeMeters).IsRequired();
+            entity.Property(x => x.CriticalMultiplier).IsRequired();
+
+            entity.HasOne(x => x.FirearmDefinition)
+                .WithMany()
+                .HasForeignKey(x => x.FirearmDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FirearmDefinition>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.Name).IsUnique();
+            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Category).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.GachaProbability).IsRequired();
+            entity.Property(x => x.Damage).IsRequired();
+            entity.Property(x => x.FireRate).IsRequired();
+            entity.Property(x => x.MagazineSize).IsRequired();
+            entity.Property(x => x.ReloadTimeSeconds).IsRequired();
+            entity.Property(x => x.RangeMeters).IsRequired();
+            entity.Property(x => x.CriticalMultiplier).IsRequired();
         });
     }
 }

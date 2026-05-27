@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using zombie_servival_3Dgame_Server.Auth;
 using zombie_servival_3Dgame_Server.Data;
 using zombie_servival_3Dgame_Server.Firearm;
+using zombie_servival_3Dgame_Server.Firearm.Configuration;
 using zombie_servival_3Dgame_Server.Gacha;
 using zombie_servival_3Dgame_Server.Inventory;
 using zombie_servival_3Dgame_Server.Options;
@@ -15,7 +16,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<GachaOptions>(builder.Configuration.GetSection(GachaOptions.SectionName));
-builder.Services.Configure<FirearmOptions>(builder.Configuration.GetSection(FirearmOptions.SectionName));
 builder.Services.Configure<PlayerOptions>(builder.Configuration.GetSection(PlayerOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                  ?? throw new InvalidOperationException("JWT settings are missing.");
@@ -52,7 +52,7 @@ builder.Services.AddScoped<IAuthService, DbAuthService>();
 builder.Services.AddScoped<IPlayerSaveDataStore, PlayerSaveDataStore>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IGachaService, GachaService>();
-builder.Services.AddSingleton<IFirearmService, FirearmService>();
+builder.Services.AddScoped<IFirearmService, FirearmService>();
 builder.Services.AddSingleton<IPlayerService, PlayerService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -63,6 +63,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<GameDbContext>();
     dbContext.Database.EnsureCreated();
+    await FirearmCatalogSeeder.UpsertAsync(dbContext, DefaultFirearmCatalog.Items);
 }
 
 // Configure the HTTP request pipeline.
