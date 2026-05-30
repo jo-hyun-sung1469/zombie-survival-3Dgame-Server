@@ -1,4 +1,4 @@
-namespace zombie_survival_3Dgame_Server.Inventory;
+namespace zombie_survival_3Dgame_Server.Inventory.Models;
 
 public sealed class PlayerSaveData
 {

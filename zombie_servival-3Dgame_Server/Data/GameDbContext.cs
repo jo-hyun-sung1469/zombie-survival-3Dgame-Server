@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using zombie_survival_3Dgame_Server.Auth.Models;
 using zombie_survival_3Dgame_Server.Firearm.Models;
-using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Inventory.Models;
 
 namespace zombie_survival_3Dgame_Server.Data;
 

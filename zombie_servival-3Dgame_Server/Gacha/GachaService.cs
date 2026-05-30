@@ -4,6 +4,7 @@ using zombie_survival_3Dgame_Server.Contracts.Gacha;
 using zombie_survival_3Dgame_Server.Data;
 using zombie_survival_3Dgame_Server.Firearm.Models;
 using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Inventory.Models;
 using zombie_survival_3Dgame_Server.Options;
 
 namespace zombie_survival_3Dgame_Server.Gacha;

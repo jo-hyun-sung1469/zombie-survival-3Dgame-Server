@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Inventory.Models;
 
 namespace zombie_survival_3Dgame_Server.Inventory;
 
