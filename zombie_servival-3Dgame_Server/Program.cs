@@ -10,12 +10,14 @@ using zombie_servival_3Dgame_Server.Gacha;
 using zombie_servival_3Dgame_Server.Inventory;
 using zombie_servival_3Dgame_Server.Options;
 using zombie_servival_3Dgame_Server.Player;
+using zombie_servival_3Dgame_Server.WeaponUpgrade;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<GachaOptions>(builder.Configuration.GetSection(GachaOptions.SectionName));
+builder.Services.Configure<WeaponUpgradeOptions>(builder.Configuration.GetSection(WeaponUpgradeOptions.SectionName));
 builder.Services.Configure<PlayerOptions>(builder.Configuration.GetSection(PlayerOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                  ?? throw new InvalidOperationException("JWT settings are missing.");
@@ -53,6 +55,7 @@ builder.Services.AddScoped<IPlayerSaveDataStore, PlayerSaveDataStore>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IGachaService, GachaService>();
 builder.Services.AddScoped<IFirearmService, FirearmService>();
+builder.Services.AddScoped<IWeaponUpgradeService, WeaponUpgradeService>();
 builder.Services.AddSingleton<IPlayerService, PlayerService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();

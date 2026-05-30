@@ -37,6 +37,7 @@ public sealed class FirearmService(GameDbContext dbContext) : IFirearmService
             Name = weapon.Name,
             DisplayName = weapon.DisplayName,
             Category = weapon.Category,
+            Rarity = weapon.Rarity,
             GachaProbability = weapon.GachaProbability,
             Damage = weapon.Damage,
             FireRate = weapon.FireRate,

@@ -68,6 +68,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
             entity.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Category).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Rarity).HasMaxLength(30).IsRequired();
             entity.Property(x => x.GachaProbability).IsRequired();
             entity.Property(x => x.Damage).IsRequired();
             entity.Property(x => x.FireRate).IsRequired();

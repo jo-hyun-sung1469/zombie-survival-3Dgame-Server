@@ -20,6 +20,7 @@ public static class FirearmCatalogSeeder
             {
                 existing.DisplayName = item.DisplayName;
                 existing.Category = item.Category;
+                existing.Rarity = item.Rarity;
                 existing.GachaProbability = item.GachaProbability;
                 existing.Damage = item.Damage;
                 existing.FireRate = item.FireRate;
@@ -35,6 +36,7 @@ public static class FirearmCatalogSeeder
                 Name = item.Name,
                 DisplayName = item.DisplayName,
                 Category = item.Category,
+                Rarity = item.Rarity,
                 GachaProbability = item.GachaProbability,
                 Damage = item.Damage,
                 FireRate = item.FireRate,

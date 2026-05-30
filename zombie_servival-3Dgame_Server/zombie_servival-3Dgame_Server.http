@@ -70,6 +70,11 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/weapon-upgrades/Shotgun
+Authorization: Bearer {{accessToken}}
+
+###
+
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/save
 Content-Type: application/json
 Authorization: Bearer {{accessToken}}

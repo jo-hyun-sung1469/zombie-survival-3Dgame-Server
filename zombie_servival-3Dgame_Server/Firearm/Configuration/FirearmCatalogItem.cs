@@ -5,6 +5,7 @@ public sealed class FirearmCatalogItem
     public required string Name { get; init; }
     public required string DisplayName { get; init; }
     public required string Category { get; init; }
+    public required string Rarity { get; init; }
     public required double GachaProbability { get; init; }
     public required int Damage { get; init; }
     public required double FireRate { get; init; }

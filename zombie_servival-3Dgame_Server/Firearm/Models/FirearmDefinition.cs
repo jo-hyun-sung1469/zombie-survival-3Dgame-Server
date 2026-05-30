@@ -6,6 +6,7 @@ public sealed class FirearmDefinition
     public string Name { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
+    public string Rarity { get; set; } = "Common";
     public double GachaProbability { get; set; }
     public int Damage { get; set; }
     public double FireRate { get; set; }
