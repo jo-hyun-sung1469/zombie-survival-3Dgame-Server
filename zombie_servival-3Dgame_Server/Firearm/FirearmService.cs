@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using zombie_servival_3Dgame_Server.Contracts.Firearm;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Contracts.Firearm;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
 
-namespace zombie_servival_3Dgame_Server.Firearm;
+namespace zombie_survival_3Dgame_Server.Firearm;
 
 public sealed class FirearmService(GameDbContext dbContext) : IFirearmService
 {

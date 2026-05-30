@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using zombie_servival_3Dgame_Server.Contracts.Inventory;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Contracts.Inventory;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
 
-namespace zombie_servival_3Dgame_Server.Inventory;
+namespace zombie_survival_3Dgame_Server.Inventory;
 
 public sealed class InventoryService(
     GameDbContext dbContext,

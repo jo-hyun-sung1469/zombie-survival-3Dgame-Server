@@ -1,6 +1,6 @@
-using zombie_servival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Firearm.Models;
 
-namespace zombie_servival_3Dgame_Server.Inventory;
+namespace zombie_survival_3Dgame_Server.Inventory;
 
 public sealed class PlayerWeaponState
 {

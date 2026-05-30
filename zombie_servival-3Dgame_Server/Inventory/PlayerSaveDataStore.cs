@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using zombie_servival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Data;
 
-namespace zombie_servival_3Dgame_Server.Inventory;
+namespace zombie_survival_3Dgame_Server.Inventory;
 
 public sealed class PlayerSaveDataStore(GameDbContext dbContext) : IPlayerSaveDataStore
 {

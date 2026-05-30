@@ -2,15 +2,15 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using zombie_servival_3Dgame_Server.Auth;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Firearm;
-using zombie_servival_3Dgame_Server.Firearm.Configuration;
-using zombie_servival_3Dgame_Server.Gacha;
-using zombie_servival_3Dgame_Server.Inventory;
-using zombie_servival_3Dgame_Server.Options;
-using zombie_servival_3Dgame_Server.Player;
-using zombie_servival_3Dgame_Server.WeaponUpgrade;
+using zombie_survival_3Dgame_Server.Auth;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm;
+using zombie_survival_3Dgame_Server.Firearm.Configuration;
+using zombie_survival_3Dgame_Server.Gacha;
+using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Player;
+using zombie_survival_3Dgame_Server.WeaponUpgrade;
 
 var builder = WebApplication.CreateBuilder(args);
 

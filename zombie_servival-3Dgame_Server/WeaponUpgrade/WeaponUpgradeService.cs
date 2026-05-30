@@ -1,13 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using zombie_servival_3Dgame_Server.Contracts.Inventory;
-using zombie_servival_3Dgame_Server.Contracts.WeaponUpgrade;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Firearm.Models;
-using zombie_servival_3Dgame_Server.Inventory;
-using zombie_servival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Contracts.Inventory;
+using zombie_survival_3Dgame_Server.Contracts.WeaponUpgrade;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Options;
 
-namespace zombie_servival_3Dgame_Server.WeaponUpgrade;
+namespace zombie_survival_3Dgame_Server.WeaponUpgrade;
 
 public sealed class WeaponUpgradeService(
     GameDbContext dbContext,

@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Auth;
+namespace zombie_survival_3Dgame_Server.Auth.Models;
 
 public sealed class AppUser
 {

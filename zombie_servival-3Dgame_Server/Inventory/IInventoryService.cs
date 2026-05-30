@@ -1,6 +1,6 @@
-using zombie_servival_3Dgame_Server.Contracts.Inventory;
+using zombie_survival_3Dgame_Server.Contracts.Inventory;
 
-namespace zombie_servival_3Dgame_Server.Inventory;
+namespace zombie_survival_3Dgame_Server.Inventory;
 
 public interface IInventoryService
 {

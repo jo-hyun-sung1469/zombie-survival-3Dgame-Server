@@ -1,6 +1,6 @@
-using zombie_servival_3Dgame_Server.Contracts.Inventory;
+using zombie_survival_3Dgame_Server.Contracts.Inventory;
 
-namespace zombie_servival_3Dgame_Server.Contracts.WeaponUpgrade;
+namespace zombie_survival_3Dgame_Server.Contracts.WeaponUpgrade;
 
 public sealed class UpgradeWeaponResponse
 {

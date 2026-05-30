@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Contracts.Firearm;
+namespace zombie_survival_3Dgame_Server.Contracts.Firearm;
 
 public sealed class FirearmStatsResponse
 {

@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using zombie_servival_3Dgame_Server.Contracts.Auth;
-using zombie_servival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Auth.Models;
+using zombie_survival_3Dgame_Server.Contracts.Auth;
+using zombie_survival_3Dgame_Server.Data;
 
-namespace zombie_servival_3Dgame_Server.Auth;
+namespace zombie_survival_3Dgame_Server.Auth;
 
 public sealed class DbAuthService(GameDbContext dbContext) : IAuthService
 {
@@ -41,8 +42,7 @@ public sealed class DbAuthService(GameDbContext dbContext) : IAuthService
     {
         var normalizedUserName = request.UserName.Trim();
         var exists = await dbContext.Users.AnyAsync(
-            x => string.Equals(x.UserName, normalizedUserName, StringComparison.OrdinalIgnoreCase),
-            cancellationToken);
+            x => x.UserName == normalizedUserName, cancellationToken);
 
         if (exists)
         {

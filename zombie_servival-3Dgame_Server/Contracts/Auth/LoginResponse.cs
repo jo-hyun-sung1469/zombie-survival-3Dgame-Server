@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Contracts.Auth;
+namespace zombie_survival_3Dgame_Server.Contracts.Auth;
 
 public sealed class LoginResponse
 {

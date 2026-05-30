@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Contracts.Gacha;
+namespace zombie_survival_3Dgame_Server.Contracts.Gacha;
 
 public sealed class GachaPullResponse
 {

@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Firearm.Models;
+namespace zombie_survival_3Dgame_Server.Firearm.Models;
 
 public sealed class FirearmDefinition
 {

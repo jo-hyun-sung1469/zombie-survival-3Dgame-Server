@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Contracts.Inventory;
+namespace zombie_survival_3Dgame_Server.Contracts.Inventory;
 
 public sealed class PlayerWeaponStateResponse
 {

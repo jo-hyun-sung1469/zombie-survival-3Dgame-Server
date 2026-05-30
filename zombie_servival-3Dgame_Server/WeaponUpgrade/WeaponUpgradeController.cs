@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using zombie_servival_3Dgame_Server.Common;
-using zombie_servival_3Dgame_Server.Contracts.WeaponUpgrade;
+using zombie_survival_3Dgame_Server.Common;
+using zombie_survival_3Dgame_Server.Contracts.WeaponUpgrade;
 
-namespace zombie_servival_3Dgame_Server.WeaponUpgrade;
+namespace zombie_survival_3Dgame_Server.WeaponUpgrade;
 
 [ApiController]
 [Route("api/weapon-upgrades")]

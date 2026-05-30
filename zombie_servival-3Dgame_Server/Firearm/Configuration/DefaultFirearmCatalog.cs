@@ -1,4 +1,4 @@
-namespace zombie_servival_3Dgame_Server.Firearm.Configuration;
+namespace zombie_survival_3Dgame_Server.Firearm.Configuration;
 
 public static class DefaultFirearmCatalog
 {

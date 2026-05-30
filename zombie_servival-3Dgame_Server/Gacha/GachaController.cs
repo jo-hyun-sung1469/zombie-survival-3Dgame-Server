@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using zombie_servival_3Dgame_Server.Common;
-using zombie_servival_3Dgame_Server.Contracts.Gacha;
+using zombie_survival_3Dgame_Server.Common;
+using zombie_survival_3Dgame_Server.Contracts.Gacha;
 
-namespace zombie_servival_3Dgame_Server.Gacha;
+namespace zombie_survival_3Dgame_Server.Gacha;
 
 [ApiController]
 [Route("api/[controller]")]

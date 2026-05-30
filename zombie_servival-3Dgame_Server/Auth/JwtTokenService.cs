@@ -3,10 +3,11 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using zombie_servival_3Dgame_Server.Contracts.Auth;
-using zombie_servival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Auth.Models;
+using zombie_survival_3Dgame_Server.Contracts.Auth;
+using zombie_survival_3Dgame_Server.Options;
 
-namespace zombie_servival_3Dgame_Server.Auth;
+namespace zombie_survival_3Dgame_Server.Auth;
 
 public sealed class JwtTokenService(IOptions<JwtOptions> jwtOptions) : IJwtTokenService
 {

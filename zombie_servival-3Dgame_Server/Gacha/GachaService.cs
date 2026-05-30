@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using zombie_servival_3Dgame_Server.Contracts.Gacha;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Firearm.Models;
-using zombie_servival_3Dgame_Server.Inventory;
-using zombie_servival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Contracts.Gacha;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Options;
 
-namespace zombie_servival_3Dgame_Server.Gacha;
+namespace zombie_survival_3Dgame_Server.Gacha;
 
 public sealed class GachaService(
     GameDbContext dbContext,
