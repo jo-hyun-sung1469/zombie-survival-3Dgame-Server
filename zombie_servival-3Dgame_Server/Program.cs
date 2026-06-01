@@ -21,6 +21,11 @@ builder.Services.Configure<WeaponUpgradeOptions>(builder.Configuration.GetSectio
 builder.Services.Configure<PlayerOptions>(builder.Configuration.GetSection(PlayerOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                  ?? throw new InvalidOperationException("JWT settings are missing.");
+if (string.IsNullOrWhiteSpace(jwtOptions.SecretKey))
+{
+    throw new InvalidOperationException("Jwt__SecretKey environment variable is missing.");
+}
+
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -44,7 +49,7 @@ builder.Services.AddControllers();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("DefaultConnection is missing.");
+    throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is missing.");
 }
 
 builder.Services.AddDbContext<GameDbContext>(options =>
