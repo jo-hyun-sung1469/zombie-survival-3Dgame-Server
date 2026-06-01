@@ -24,12 +24,7 @@ public sealed class InventoryService(
         ApplyWeaponStates(saveData, request.WeaponStates, firearmByName);
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        var updatedSaveData = await dbContext.PlayerSaveData
-            .AsNoTracking()
-            .Include(x => x.WeaponStates)
-            .ThenInclude(x => x.FirearmDefinition)
-            .SingleAsync(x => x.Id == saveData.Id, cancellationToken);
-        return MapResponse(updatedSaveData);
+        return MapResponse(saveData);
     }
 
     public async Task<PlayerSaveResponse?> GetByPlayerIdAsync(string playerId, CancellationToken cancellationToken)

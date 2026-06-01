@@ -22,10 +22,15 @@ public sealed class FirearmService(GameDbContext dbContext) : IFirearmService
 
     public async Task<FirearmStatsResponse?> GetByNameAsync(string weaponName, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(weaponName))
+        {
+            return null;
+        }
+
         var normalizedWeaponName = weaponName.Trim();
         var weapon = await dbContext.FirearmDefinitions
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Name.ToLower() == normalizedWeaponName.ToLower(), cancellationToken);
+            .SingleOrDefaultAsync(x => x.Name == normalizedWeaponName, cancellationToken);
 
         return weapon is null ? null : MapResponse(weapon);
     }

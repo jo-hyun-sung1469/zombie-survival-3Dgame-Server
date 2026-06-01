@@ -23,15 +23,15 @@ public sealed class WeaponUpgradeService(
         string weaponName,
         CancellationToken cancellationToken)
     {
-        var normalizedWeaponName = weaponName.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedWeaponName))
+        if (string.IsNullOrWhiteSpace(weaponName))
         {
             return new WeaponUpgradeResult { Status = WeaponUpgradeStatus.WeaponNotFound };
         }
 
+        var normalizedWeaponName = weaponName.Trim();
         var firearm = await dbContext.FirearmDefinitions
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Name.ToLower() == normalizedWeaponName.ToLower(), cancellationToken);
+            .SingleOrDefaultAsync(x => x.Name == normalizedWeaponName, cancellationToken);
 
         if (firearm is null)
         {
@@ -101,9 +101,12 @@ public sealed class WeaponUpgradeService(
 
     private int CalculateUpgradeCost(string rarity, int weaponLevel)
     {
-        var baseCost = _weaponUpgradeOptions.BaseCostsByRarity.TryGetValue(rarity, out var configuredCost)
-            ? configuredCost
-            : _weaponUpgradeOptions.BaseCostsByRarity["Common"];
+        if (!_weaponUpgradeOptions.BaseCostsByRarity.TryGetValue(rarity, out var baseCost)
+            && !_weaponUpgradeOptions.BaseCostsByRarity.TryGetValue("Common", out baseCost))
+        {
+            baseCost = 500;
+        }
+
         var multiplier = Math.Pow(1 + _weaponUpgradeOptions.CostIncreaseRate, Math.Max(1, weaponLevel) - 1);
 
         return (int)Math.Ceiling(baseCost * multiplier);
