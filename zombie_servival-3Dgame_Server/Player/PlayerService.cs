@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Options;
-using zombie_servival_3Dgame_Server.Contracts.Player;
-using zombie_servival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Contracts.Player;
+using zombie_survival_3Dgame_Server.Options;
 
-namespace zombie_servival_3Dgame_Server.Player;
+namespace zombie_survival_3Dgame_Server.Player;
 
 public sealed class PlayerService(IOptions<PlayerOptions> playerOptions) : IPlayerService
 {

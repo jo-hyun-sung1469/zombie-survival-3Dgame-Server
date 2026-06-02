@@ -1,4 +1,4 @@
-@zombie_servival_3Dgame_Server_HostAddress = http://localhost:5294
+@zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
 
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register
 Content-Type: application/json
@@ -66,6 +66,11 @@ Authorization: Bearer {{accessToken}}
 ###
 
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/weapon-upgrades/Shotgun
 Authorization: Bearer {{accessToken}}
 
 ###

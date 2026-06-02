@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace zombie_servival_3Dgame_Server.Common;
+namespace zombie_survival_3Dgame_Server.Common;
 
 public static class ApiProblemDetails
 {

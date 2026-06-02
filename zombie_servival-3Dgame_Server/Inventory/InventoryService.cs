@@ -1,32 +1,27 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using zombie_servival_3Dgame_Server.Contracts.Inventory;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Contracts.Inventory;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Inventory.Models;
 
-namespace zombie_servival_3Dgame_Server.Inventory;
+namespace zombie_survival_3Dgame_Server.Inventory;
 
 public sealed class InventoryService(
     GameDbContext dbContext,
-    IPlayerSaveDataStore playerSaveDataStore,
-    IOptions<FirearmOptions> firearmOptions) : IInventoryService
+    IPlayerSaveDataStore playerSaveDataStore) : IInventoryService
 {
-    private readonly HashSet<string> _validWeaponNames = firearmOptions.Value.Weapons
-        .Select(x => x.Name.Trim())
-        .Where(x => !string.IsNullOrWhiteSpace(x))
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
     public async Task<PlayerSaveResponse> SaveAsync(
         string playerId,
         SavePlayerDataRequest request,
         CancellationToken cancellationToken)
     {
-        ValidateWeaponStates(request.WeaponStates);
+        var firearmByName = await GetFirearmByNameAsync(cancellationToken);
+        ValidateWeaponStates(request.WeaponStates, firearmByName);
         var saveData = await playerSaveDataStore.GetOrCreateAsync(playerId, cancellationToken);
 
         saveData.Gold = request.Gold;
         saveData.UpdatedAtUtc = DateTime.UtcNow;
-        ApplyWeaponStates(saveData, request.WeaponStates);
+        ApplyWeaponStates(saveData, request.WeaponStates, firearmByName);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return MapResponse(saveData);
@@ -37,16 +32,19 @@ public sealed class InventoryService(
         var saveData = await dbContext.PlayerSaveData
             .AsNoTracking()
             .Include(x => x.WeaponStates)
+            .ThenInclude(x => x.FirearmDefinition)
             .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
 
         return saveData is null ? null : MapResponse(saveData);
     }
 
-    private void ValidateWeaponStates(IReadOnlyDictionary<string, bool> weaponStates)
+    private static void ValidateWeaponStates(
+        IReadOnlyDictionary<string, bool> weaponStates,
+        IReadOnlyDictionary<string, FirearmDefinition> firearmByName)
     {
         var invalidWeaponNames = weaponStates.Keys
             .Select(x => x.Trim())
-            .Where(x => !_validWeaponNames.Contains(x))
+            .Where(x => !firearmByName.ContainsKey(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -60,31 +58,47 @@ public sealed class InventoryService(
             $"Unsupported weapon names: {string.Join(", ", invalidWeaponNames)}");
     }
 
-    private void ApplyWeaponStates(PlayerSaveData saveData, IReadOnlyDictionary<string, bool> weaponStates)
+    private void ApplyWeaponStates(
+        PlayerSaveData saveData,
+        IReadOnlyDictionary<string, bool> weaponStates,
+        IReadOnlyDictionary<string, FirearmDefinition> firearmByName)
     {
         var requestedStates = weaponStates
             .ToDictionary(x => x.Key.Trim(), x => x.Value, StringComparer.OrdinalIgnoreCase);
 
         var existingStates = saveData.WeaponStates
-            .ToDictionary(x => x.WeaponName, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(x => x.FirearmDefinitionId);
+        var requestedFirearmIds = requestedStates.Keys
+            .Select(name => firearmByName[name].Id)
+            .ToHashSet();
 
         foreach (var requestedState in requestedStates)
         {
-            if (existingStates.TryGetValue(requestedState.Key, out var existingState))
+            var firearm = firearmByName[requestedState.Key];
+            if (existingStates.TryGetValue(firearm.Id, out var existingState))
             {
                 existingState.IsOwned = requestedState.Value;
+                existingState.WeaponName = firearm.Name;
                 continue;
             }
 
             saveData.WeaponStates.Add(new PlayerWeaponState
             {
-                WeaponName = requestedState.Key,
-                IsOwned = requestedState.Value
+                FirearmDefinitionId = firearm.Id,
+                WeaponName = firearm.Name,
+                IsOwned = requestedState.Value,
+                WeaponLevel = 1,
+                Damage = firearm.Damage,
+                FireRate = firearm.FireRate,
+                MagazineSize = firearm.MagazineSize,
+                ReloadTimeSeconds = firearm.ReloadTimeSeconds,
+                RangeMeters = firearm.RangeMeters,
+                CriticalMultiplier = firearm.CriticalMultiplier
             });
         }
 
         var statesToRemove = saveData.WeaponStates
-            .Where(x => !requestedStates.ContainsKey(x.WeaponName))
+            .Where(x => !requestedFirearmIds.Contains(x.FirearmDefinitionId))
             .ToList();
 
         foreach (var stateToRemove in statesToRemove)
@@ -92,6 +106,17 @@ public sealed class InventoryService(
             saveData.WeaponStates.Remove(stateToRemove);
             dbContext.PlayerWeaponStates.Remove(stateToRemove);
         }
+    }
+
+    private async Task<IReadOnlyDictionary<string, FirearmDefinition>> GetFirearmByNameAsync(
+        CancellationToken cancellationToken)
+    {
+        var firearms = await dbContext.FirearmDefinitions
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return firearms
+            .ToDictionary(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     private static PlayerSaveResponse MapResponse(PlayerSaveData saveData)
@@ -103,6 +128,21 @@ public sealed class InventoryService(
             WeaponStates = saveData.WeaponStates
                 .OrderBy(x => x.WeaponName, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(x => x.WeaponName, x => x.IsOwned, StringComparer.OrdinalIgnoreCase),
+            Weapons = saveData.WeaponStates
+                .OrderBy(x => x.WeaponName, StringComparer.OrdinalIgnoreCase)
+                .Select(x => new PlayerWeaponStateResponse
+                {
+                    WeaponName = x.WeaponName,
+                    IsOwned = x.IsOwned,
+                    WeaponLevel = x.WeaponLevel,
+                    Damage = x.Damage,
+                    FireRate = x.FireRate,
+                    MagazineSize = x.MagazineSize,
+                    ReloadTimeSeconds = x.ReloadTimeSeconds,
+                    RangeMeters = x.RangeMeters,
+                    CriticalMultiplier = x.CriticalMultiplier
+                })
+                .ToList(),
             UpdatedAtUtc = saveData.UpdatedAtUtc
         };
     }

@@ -1,20 +1,20 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using zombie_servival_3Dgame_Server.Contracts.Gacha;
-using zombie_servival_3Dgame_Server.Data;
-using zombie_servival_3Dgame_Server.Inventory;
-using zombie_servival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.Contracts.Gacha;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Inventory.Models;
+using zombie_survival_3Dgame_Server.Options;
 
-namespace zombie_servival_3Dgame_Server.Gacha;
+namespace zombie_survival_3Dgame_Server.Gacha;
 
 public sealed class GachaService(
     GameDbContext dbContext,
     IPlayerSaveDataStore playerSaveDataStore,
-    IOptions<GachaOptions> gachaOptions,
-    IOptions<FirearmOptions> firearmOptions) : IGachaService
+    IOptions<GachaOptions> gachaOptions) : IGachaService
 {
     private readonly GachaOptions _gachaOptions = gachaOptions.Value;
-    private readonly IReadOnlyList<FirearmDefinitionOption> _firearms = firearmOptions.Value.Weapons;
 
     public async Task<GachaPoolResponse> GetPoolAsync(string playerId, CancellationToken cancellationToken)
     {
@@ -24,15 +24,18 @@ public sealed class GachaService(
             .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
 
         var currentGold = saveData?.Gold ?? 0;
-        var ownedWeapons = ToOwnedWeaponSet(saveData);
-        var rewards = _firearms
+        var ownedWeaponIds = ToOwnedWeaponIdSet(saveData);
+        var firearms = await dbContext.FirearmDefinitions
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+        var rewards = firearms
             .Where(x => x.GachaProbability > 0)
             .OrderByDescending(x => x.GachaProbability)
             .Select(x => new GachaRewardProbabilityResponse
             {
                 RewardName = x.Name,
                 Probability = x.GachaProbability,
-                IsOwned = ownedWeapons.Contains(x.Name)
+                IsOwned = ownedWeaponIds.Contains(x.Id)
             })
             .ToList();
 
@@ -59,9 +62,12 @@ public sealed class GachaService(
             };
         }
 
-        var ownedWeapons = ToOwnedWeaponSet(saveData);
-        var availableRewards = _firearms
-            .Where(x => x.GachaProbability > 0 && !ownedWeapons.Contains(x.Name))
+        var ownedWeaponIds = ToOwnedWeaponIdSet(saveData);
+        var firearms = await dbContext.FirearmDefinitions
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+        var availableRewards = firearms
+            .Where(x => x.GachaProbability > 0 && !ownedWeaponIds.Contains(x.Id))
             .ToList();
 
         if (availableRewards.Count == 0)
@@ -74,24 +80,33 @@ public sealed class GachaService(
             };
         }
 
-        var rewardName = SelectReward(availableRewards);
+        var reward = SelectReward(availableRewards);
         saveData.Gold -= _gachaOptions.PullCost;
         saveData.UpdatedAtUtc = DateTime.UtcNow;
 
         var weaponState = saveData.WeaponStates
-            .SingleOrDefault(x => string.Equals(x.WeaponName, rewardName, StringComparison.OrdinalIgnoreCase));
+            .SingleOrDefault(x => x.FirearmDefinitionId == reward.Id);
 
         if (weaponState is null)
         {
             saveData.WeaponStates.Add(new PlayerWeaponState
             {
-                WeaponName = rewardName,
-                IsOwned = true
+                FirearmDefinitionId = reward.Id,
+                WeaponName = reward.Name,
+                IsOwned = true,
+                WeaponLevel = 1,
+                Damage = reward.Damage,
+                FireRate = reward.FireRate,
+                MagazineSize = reward.MagazineSize,
+                ReloadTimeSeconds = reward.ReloadTimeSeconds,
+                RangeMeters = reward.RangeMeters,
+                CriticalMultiplier = reward.CriticalMultiplier
             });
         }
         else
         {
             weaponState.IsOwned = true;
+            weaponState.WeaponName = reward.Name;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -103,7 +118,7 @@ public sealed class GachaService(
             CurrentGold = saveData.Gold,
             Response = new GachaPullResponse
             {
-                RewardName = rewardName,
+                RewardName = reward.Name,
                 CurrentGold = saveData.Gold,
                 RemainingRewardCount = availableRewards.Count - 1,
                 UpdatedAtUtc = saveData.UpdatedAtUtc
@@ -111,16 +126,16 @@ public sealed class GachaService(
         };
     }
 
-    private static HashSet<string> ToOwnedWeaponSet(PlayerSaveData? saveData)
+    private static HashSet<int> ToOwnedWeaponIdSet(PlayerSaveData? saveData)
     {
         return saveData?.WeaponStates
             .Where(x => x.IsOwned)
-            .Select(x => x.WeaponName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase)
-            ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            .Select(x => x.FirearmDefinitionId)
+            .ToHashSet()
+            ?? [];
     }
 
-    private static string SelectReward(IReadOnlyList<FirearmDefinitionOption> rewards)
+    private static FirearmDefinition SelectReward(IReadOnlyList<FirearmDefinition> rewards)
     {
         var totalWeight = rewards.Sum(x => x.GachaProbability);
         var roll = Random.Shared.NextDouble() * totalWeight;
@@ -130,10 +145,10 @@ public sealed class GachaService(
             roll -= reward.GachaProbability;
             if (roll <= 0)
             {
-                return reward.Name;
+                return reward;
             }
         }
 
-        return rewards[^1].Name;
+        return rewards[^1];
     }
 }

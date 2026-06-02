@@ -1,6 +1,6 @@
-using zombie_servival_3Dgame_Server.Contracts.Firearm;
+using zombie_survival_3Dgame_Server.Contracts.Firearm;
 
-namespace zombie_servival_3Dgame_Server.Firearm;
+namespace zombie_survival_3Dgame_Server.Firearm;
 
 public interface IFirearmService
 {

@@ -1,6 +1,6 @@
-namespace zombie_survival_3Dgame_Server.Contracts.Firearm;
+namespace zombie_survival_3Dgame_Server.Firearm.Configuration;
 
-public sealed class FirearmStatsResponse
+public sealed class FirearmCatalogItem
 {
     public required string Name { get; init; }
     public required string DisplayName { get; init; }

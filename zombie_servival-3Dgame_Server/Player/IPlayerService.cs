@@ -1,6 +1,6 @@
-using zombie_servival_3Dgame_Server.Contracts.Player;
+using zombie_survival_3Dgame_Server.Contracts.Player;
 
-namespace zombie_servival_3Dgame_Server.Player;
+namespace zombie_survival_3Dgame_Server.Player;
 
 public interface IPlayerService
 {

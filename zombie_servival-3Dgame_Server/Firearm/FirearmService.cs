@@ -1,42 +1,48 @@
-using Microsoft.Extensions.Options;
-using zombie_servival_3Dgame_Server.Contracts.Firearm;
-using zombie_servival_3Dgame_Server.Options;
+using Microsoft.EntityFrameworkCore;
+using zombie_survival_3Dgame_Server.Contracts.Firearm;
+using zombie_survival_3Dgame_Server.Data;
+using zombie_survival_3Dgame_Server.Firearm.Models;
 
-namespace zombie_servival_3Dgame_Server.Firearm;
+namespace zombie_survival_3Dgame_Server.Firearm;
 
-public sealed class FirearmService(IOptions<FirearmOptions> firearmOptions) : IFirearmService
+public sealed class FirearmService(GameDbContext dbContext) : IFirearmService
 {
-    private readonly IReadOnlyList<FirearmDefinitionOption> _weapons = firearmOptions.Value.Weapons
-        .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-        .ToList();
-
-    public Task<FirearmCollectionResponse> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<FirearmCollectionResponse> GetAllAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var weapons = await dbContext.FirearmDefinitions
+            .AsNoTracking()
+            .OrderBy(x => x.Name)
+            .ToListAsync(cancellationToken);
 
-        return Task.FromResult(new FirearmCollectionResponse
+        return new FirearmCollectionResponse
         {
-            Weapons = _weapons.Select(MapResponse).ToList()
-        });
+            Weapons = weapons.Select(MapResponse).ToList()
+        };
     }
 
-    public Task<FirearmStatsResponse?> GetByNameAsync(string weaponName, CancellationToken cancellationToken)
+    public async Task<FirearmStatsResponse?> GetByNameAsync(string weaponName, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(weaponName))
+        {
+            return null;
+        }
 
-        var weapon = _weapons.SingleOrDefault(x =>
-            string.Equals(x.Name, weaponName, StringComparison.OrdinalIgnoreCase));
+        var normalizedWeaponName = weaponName.Trim();
+        var weapon = await dbContext.FirearmDefinitions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Name == normalizedWeaponName, cancellationToken);
 
-        return Task.FromResult(weapon is null ? null : MapResponse(weapon));
+        return weapon is null ? null : MapResponse(weapon);
     }
 
-    private static FirearmStatsResponse MapResponse(FirearmDefinitionOption weapon)
+    private static FirearmStatsResponse MapResponse(FirearmDefinition weapon)
     {
         return new FirearmStatsResponse
         {
             Name = weapon.Name,
             DisplayName = weapon.DisplayName,
             Category = weapon.Category,
+            Rarity = weapon.Rarity,
             GachaProbability = weapon.GachaProbability,
             Damage = weapon.Damage,
             FireRate = weapon.FireRate,

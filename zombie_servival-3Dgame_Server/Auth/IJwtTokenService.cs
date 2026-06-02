@@ -1,6 +1,7 @@
-using zombie_servival_3Dgame_Server.Contracts.Auth;
+using zombie_survival_3Dgame_Server.Auth.Models;
+using zombie_survival_3Dgame_Server.Contracts.Auth;
 
-namespace zombie_servival_3Dgame_Server.Auth;
+namespace zombie_survival_3Dgame_Server.Auth;
 
 public interface IJwtTokenService
 {

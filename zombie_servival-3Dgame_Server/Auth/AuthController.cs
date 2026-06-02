@@ -1,13 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using zombie_servival_3Dgame_Server.Common;
-using zombie_servival_3Dgame_Server.Auth;
-using zombie_servival_3Dgame_Server.Contracts.Auth;
+using zombie_survival_3Dgame_Server.Auth;
+using zombie_survival_3Dgame_Server.Common;
+using zombie_survival_3Dgame_Server.Contracts.Auth;
 
-namespace zombie_servival_3Dgame_Server.Auth;
+namespace zombie_survival_3Dgame_Server.Auth;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/auth")]
 public sealed class AuthController(IAuthService authService, IJwtTokenService jwtTokenService) : ControllerBase
 {
     [HttpPost("register")]
