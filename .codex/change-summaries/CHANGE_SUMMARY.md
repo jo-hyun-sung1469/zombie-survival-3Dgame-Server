@@ -1,10 +1,10 @@
-# Change Summary
+# 변경사항 요약
 
-Use this file as the quick-view record for harness, workflow, or multi-file implementation changes.
+하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
-## 2026-06-04 - Harness decision guardrails
+## 2026-06-04 - 하네스 결정 가드레일
 
-- Purpose: Add guardrails for user decision points and make important choices easier to review.
-- Changed areas: `AGENTS.md`, `.codex/codex.md`, `.codex/skills`, `.agents/skills`.
-- Verification: Confirmed matching `.codex` and `.agents` skill contents with `git diff --no-index`; confirmed guardrail phrases with `rg`.
-- Remaining user decisions: None.
+- 목적: 사용자 결정 지점에 가드레일을 추가하고 중요한 선택을 쉽게 검토할 수 있게 정리했습니다.
+- 변경 영역: `AGENTS.md`, `.codex/codex.md`, `.codex/skills`, `.agents/skills`.
+- 검증: `git diff --no-index`로 `.codex`와 `.agents` 스킬 내용 일치 여부를 확인했고, `rg`로 가드레일 문구 반영을 확인했습니다.
+- 남은 사용자 결정: 없음.

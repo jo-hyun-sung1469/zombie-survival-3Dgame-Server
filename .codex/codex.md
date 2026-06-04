@@ -74,6 +74,7 @@ zombie_servival-3Dgame_Server/
 - Keep unrelated worktree changes out of commits unless the user explicitly chooses to include them.
 - Keep a quick-view change summary in `.codex/change-summaries/CHANGE_SUMMARY.md` when harness, workflow, or multi-file implementation changes are made.
 - The summary file should list the date, purpose, changed areas, verification, and any remaining user decisions.
+- Write change summary content in Korean.
 
 ## Notes
 

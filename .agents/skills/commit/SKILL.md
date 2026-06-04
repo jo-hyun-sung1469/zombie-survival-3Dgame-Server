@@ -96,6 +96,8 @@ The summary should be brief and scannable:
 - Verification
 - Remaining user decisions
 
+Write the change summary content in Korean.
+
 ## Guardrails
 
 - Do not mix feature, refactor, and docs changes in one commit unless they are inseparable.
