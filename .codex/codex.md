@@ -63,6 +63,18 @@ zombie_servival-3Dgame_Server/
 - JWT Bearer authentication configured in `Program.cs`
 - Controllers read authenticated identity from JWT claims, not request body fields
 
+## Harness Decision Guardrails
+
+- Before changing code, inspect the relevant files and current git state first.
+- Ask for user choice only for decisions that materially change the outcome, such as implementation direction, risky security behavior, commit scope, or commit message.
+- When user input is needed, present exactly three meaningful options and mark one as `(Recommended)`.
+- Limit decision conversations to 25 turns for important decisions and 15 turns for non-important decisions.
+- If the turn limit is reached, summarize the options, choose the recommended safe default, and continue unless user input is strictly required.
+- Do not ask about facts that can be discovered from the repository or tooling.
+- Keep unrelated worktree changes out of commits unless the user explicitly chooses to include them.
+- Keep a quick-view change summary in `.codex/change-summaries/CHANGE_SUMMARY.md` when harness, workflow, or multi-file implementation changes are made.
+- The summary file should list the date, purpose, changed areas, verification, and any remaining user decisions.
+
 ## Notes
 
 - The project currently targets `net9.0`

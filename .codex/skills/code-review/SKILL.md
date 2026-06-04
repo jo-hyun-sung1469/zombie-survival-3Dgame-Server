@@ -9,6 +9,16 @@ description: >
 
 ## Review Order
 
+## Pre-Review Guardrail Check
+
+Before reviewing or changing code, inspect the current diff and relevant files.
+
+If a finding requires an implementation choice, present exactly three options and mark one as `(Recommended)`.
+Use this for decisions such as minimal fix versus broader refactor, security behavior changes, or whether to defer a follow-up.
+Limit review decision conversations to 25 turns for important findings and 15 turns for non-important findings.
+If the limit is reached, summarize the remaining choice and recommend the safest actionable path.
+Do not ask for user input when the correct action is directly determined by the repository or by this checklist.
+
 ### 1. Security (Highest Priority)
 
 - [ ] No code that applies client input values directly to server state?
