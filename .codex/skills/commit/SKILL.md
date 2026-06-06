@@ -66,7 +66,7 @@ Description rules:
 ## User Choice Points
 
 When a commit decision materially affects the result, present exactly three options and mark one as `(Recommended)`.
-Limit commit decision conversations to 25 turns for important decisions and 15 turns for non-important decisions.
+Limit commit decision conversations to 25 turns for important decisions and 15 turns for minor decisions.
 
 Ask for a user choice when:
 
