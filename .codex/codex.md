@@ -13,31 +13,31 @@ dotnet run --project .\zombie_servival-3Dgame_Server\zombie_servival-3Dgame_Serv
 
 ```text
 zombie_servival-3Dgame_Server/
-?쒋?? Auth/               # Login, logout, registration
-?쒋?? Player/             # Character stats, in-game stat increases
-?쒋?? Inventory/          # Gold, weapons owned, weapon enhancement/stats
-?쒋?? Gacha/              # Roulette, probability, reward grant
-?쒋?? GameSession/        # Continue, restart, new game, wave state
-?쒋?? Reward/             # Kill count ??reward calculation
-?쒋?? Zombie/             # Difficulty scaling, wave configuration
-?쒋?? Contracts/
-??  ?쒋?? Auth/
-??  ?쒋?? Player/
-??  ?쒋?? Inventory/
-??  ?쒋?? Gacha/
-??  ?쒋?? GameSession/
-??  ?쒋?? Reward/
-??  ?붴?? Zombie/
-?쒋?? Data/               # EF Core DbContext
-?쒋?? Options/            # Configuration binding classes
-?쒋?? Program.cs
-?쒋?? appsettings.json
-?붴?? zombie_servival-3Dgame_Server.http
+|-- Auth/               # Login, logout, registration
+|-- Player/             # Character stats, in-game stat increases
+|-- Inventory/          # Gold, weapons owned, weapon enhancement/stats
+|-- Gacha/              # Roulette, probability, reward grant
+|-- GameSession/        # Continue, restart, new game, wave state
+|-- Reward/             # Kill count and reward calculation
+|-- Zombie/             # Difficulty scaling, wave configuration
+|-- Contracts/
+|   |-- Auth/
+|   |-- Player/
+|   |-- Inventory/
+|   |-- Gacha/
+|   |-- GameSession/
+|   |-- Reward/
+|   `-- Zombie/
+|-- Data/               # EF Core DbContext
+|-- Options/            # Configuration binding classes
+|-- Program.cs
+|-- appsettings.json
+`-- zombie_servival-3Dgame_Server.http
 ```
 
 ## Architecture
 
-- Modular monolith ??each domain is self-contained inside the single project
+- Modular monolith: each domain is self-contained inside the single project
 - Preferred flow: `Controller -> Service -> DbContext`
 - Controllers own HTTP concerns only
 - Services own business logic and persistence orchestration
@@ -48,13 +48,13 @@ zombie_servival-3Dgame_Server/
 
 | Domain | Endpoints | Status |
 |--------|-----------|--------|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` | ??Complete |
-| Inventory | `POST /api/player-data/save`, `GET /api/player-data/me` | ??Complete |
-| Player | Character stats, in-game stat upgrades | ?뵴 Planned |
-| Gacha | Weapon roulette, probability, pity system | ?뵴 Planned |
-| GameSession | Continue / restart / new game, wave state | ?뵴 Planned |
-| Reward | Kill count ??gold / item rewards | ?뵴 Planned |
-| Zombie | Wave difficulty scaling | ?뵴 Planned |
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` | 완료 |
+| Inventory | `POST /api/player-data/save`, `GET /api/player-data/me` | 완료 |
+| Player | Character stats, in-game stat upgrades | 계획됨 |
+| Gacha | Weapon roulette, probability, pity system | 계획됨 |
+| GameSession | Continue / restart / new game, wave state | 계획됨 |
+| Reward | Kill count, gold rewards, item rewards | 계획됨 |
+| Zombie | Wave difficulty scaling | 계획됨 |
 
 ## Data And Security
 
