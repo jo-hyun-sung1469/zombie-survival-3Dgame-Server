@@ -1,10 +1,31 @@
 @zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
 
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/email-code
+Content-Type: application/json
+
+{
+  "email": "player1@example.com"
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/email-code/verify
+Content-Type: application/json
+
+{
+  "emailVerificationId": "{{emailVerificationId}}",
+  "code": "123456"
+}
+
+###
+
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register
 Content-Type: application/json
 
 {
   "userName": "player1",
+  "email": "player1@example.com",
+  "emailVerificationId": "{{emailVerificationId}}",
   "password": "player1-password"
 }
 

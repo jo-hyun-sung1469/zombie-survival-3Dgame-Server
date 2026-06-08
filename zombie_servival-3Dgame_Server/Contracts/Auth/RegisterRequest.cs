@@ -9,6 +9,14 @@ public sealed class RegisterRequest
     public string UserName { get; init; } = string.Empty;
 
     [Required]
+    [EmailAddress]
+    [StringLength(254)]
+    public string Email { get; init; } = string.Empty;
+
+    [Required]
+    public string EmailVerificationId { get; init; } = string.Empty;
+
+    [Required]
     [StringLength(100, MinimumLength = 6)]
     public string Password { get; init; } = string.Empty;
 }
