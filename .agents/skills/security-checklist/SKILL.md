@@ -9,6 +9,16 @@ description: >
 
 ## Audit Scope
 
+## Guardrail Check
+
+Before proposing or applying a security fix, inspect the relevant configuration, auth flow, persistence code, and current git state.
+
+If the fix has meaningful tradeoffs, present exactly three options and mark one as `(Recommended)`.
+Use the options to separate minimal safe fixes, broader hardening, and documented follow-ups.
+Limit security decision conversations to 25 turns for important findings and 15 turns for minor findings.
+If the limit is reached, summarize the remaining choice and recommend the safest actionable path.
+Do not offer insecure options as valid choices; if a critical issue is present, state that it must be fixed before merge.
+
 ### 1. Anti-Cheat
 
 ```text
