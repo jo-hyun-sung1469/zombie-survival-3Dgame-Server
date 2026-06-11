@@ -32,7 +32,7 @@ type(scope): description
 
 Types:
 
-- `add`
+- `feat`
 - `update`
 - `fix`
 - `refactor`
