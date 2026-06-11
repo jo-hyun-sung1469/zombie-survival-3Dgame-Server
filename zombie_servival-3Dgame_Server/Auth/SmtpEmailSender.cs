@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using Microsoft.Extensions.Options;
 using zombie_survival_3Dgame_Server.Options;
 
@@ -19,8 +20,10 @@ public sealed class SmtpEmailSender(IOptions<SmtpEmailOptions> smtpEmailOptions)
         using var message = new MailMessage
         {
             From = new MailAddress(_options.FromAddress, _options.FromName),
-            Subject = "Zombie Survival signup verification code",
-            Body = $"Your Zombie Survival signup verification code is {code}. It expires soon.",
+            Subject = "Zombie Survival 회원가입 인증 코드",
+            Body = $"Zombie Survival 회원가입 인증 코드는 {code}입니다. 인증 코드는 곧 만료됩니다.",
+            SubjectEncoding = Encoding.UTF8,
+            BodyEncoding = Encoding.UTF8,
             IsBodyHtml = false
         };
         message.To.Add(email);
