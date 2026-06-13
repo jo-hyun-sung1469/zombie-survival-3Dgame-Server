@@ -1,7 +1,7 @@
-using System.Net;
-using System.Net.Mail;
-using System.Text;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Options;
+using MimeKit;
 using zombie_survival_3Dgame_Server.Options;
 
 namespace zombie_survival_3Dgame_Server.Auth;
@@ -17,27 +17,40 @@ public sealed class SmtpEmailSender(IOptions<SmtpEmailOptions> smtpEmailOptions)
             throw new InvalidOperationException("SMTP email settings are missing.");
         }
 
-        using var message = new MailMessage
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(_options.FromName, _options.FromAddress));
+        message.To.Add(MailboxAddress.Parse(email));
+        message.Subject = "Zombie Survival 회원가입 인증 코드";
+        message.Body = new TextPart("plain")
         {
-            From = new MailAddress(_options.FromAddress, _options.FromName),
-            Subject = "Zombie Survival 회원가입 인증 코드",
-            Body = $"Zombie Survival 회원가입 인증 코드는 {code}입니다. 인증 코드는 곧 만료됩니다.",
-            SubjectEncoding = Encoding.UTF8,
-            BodyEncoding = Encoding.UTF8,
-            IsBodyHtml = false
+            Text = $"Zombie Survival 회원가입 인증 코드는 {code}입니다. 인증 코드는 곧 만료됩니다."
         };
-        message.To.Add(email);
 
-        using var client = new SmtpClient(_options.Host, _options.Port)
-        {
-            EnableSsl = _options.EnableSsl
-        };
+        using var client = new SmtpClient();
+        await client.ConnectAsync(
+            _options.Host,
+            _options.Port,
+            GetSecureSocketOptions(_options),
+            cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(_options.UserName))
         {
-            client.Credentials = new NetworkCredential(_options.UserName, _options.Password);
+            await client.AuthenticateAsync(_options.UserName, _options.Password, cancellationToken);
         }
 
-        await client.SendMailAsync(message, cancellationToken);
+        await client.SendAsync(message, cancellationToken);
+        await client.DisconnectAsync(true, cancellationToken);
+    }
+
+    private static SecureSocketOptions GetSecureSocketOptions(SmtpEmailOptions options)
+    {
+        if (!options.EnableSsl)
+        {
+            return SecureSocketOptions.None;
+        }
+
+        return options.Port == 465
+            ? SecureSocketOptions.SslOnConnect
+            : SecureSocketOptions.StartTls;
     }
 }
