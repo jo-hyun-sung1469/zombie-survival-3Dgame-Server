@@ -16,6 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<EmailAuthOptions>(builder.Configuration.GetSection(EmailAuthOptions.SectionName));
+builder.Services.Configure<SmtpEmailOptions>(builder.Configuration.GetSection(SmtpEmailOptions.SectionName));
 builder.Services.Configure<GachaOptions>(builder.Configuration.GetSection(GachaOptions.SectionName));
 builder.Services.Configure<WeaponUpgradeOptions>(builder.Configuration.GetSection(WeaponUpgradeOptions.SectionName));
 builder.Services.Configure<PlayerOptions>(builder.Configuration.GetSection(PlayerOptions.SectionName));
@@ -55,6 +57,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<GameDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IAuthService, DbAuthService>();
 builder.Services.AddScoped<IPlayerSaveDataStore, PlayerSaveDataStore>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();

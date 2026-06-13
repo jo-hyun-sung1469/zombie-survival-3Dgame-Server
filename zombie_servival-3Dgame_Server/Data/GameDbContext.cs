@@ -8,6 +8,7 @@ namespace zombie_survival_3Dgame_Server.Data;
 public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbContext(options)
 {
     public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<AuthVerificationCode> AuthVerificationCodes => Set<AuthVerificationCode>();
     public DbSet<PlayerSaveData> PlayerSaveData => Set<PlayerSaveData>();
     public DbSet<PlayerWeaponState> PlayerWeaponStates => Set<PlayerWeaponState>();
     public DbSet<FirearmDefinition> FirearmDefinitions => Set<FirearmDefinition>();
@@ -18,11 +19,25 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
         {
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.UserName).IsUnique();
+            entity.HasIndex(x => x.Email).IsUnique();
             entity.Property(x => x.Id).HasMaxLength(64).IsRequired();
             entity.Property(x => x.UserName).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(254).IsRequired();
             entity.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
             entity.Property(x => x.Role).HasMaxLength(20).IsRequired();
             entity.Property(x => x.CreatedAtUtc).IsRequired();
+        });
+
+        modelBuilder.Entity<AuthVerificationCode>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.Email);
+            entity.Property(x => x.Id).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(254).IsRequired();
+            entity.Property(x => x.CodeHash).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.AttemptCount).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.ExpiresAtUtc).IsRequired();
         });
 
         modelBuilder.Entity<PlayerSaveData>(entity =>
