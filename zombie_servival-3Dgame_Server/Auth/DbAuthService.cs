@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using zombie_survival_3Dgame_Server.Auth.Models;
 using zombie_survival_3Dgame_Server.Contracts.Auth;
@@ -12,7 +13,8 @@ namespace zombie_survival_3Dgame_Server.Auth;
 public sealed class DbAuthService(
     GameDbContext dbContext,
     IEmailSender emailSender,
-    IOptions<EmailAuthOptions> emailAuthOptions) : IAuthService
+    IOptions<EmailAuthOptions> emailAuthOptions,
+    ILogger<DbAuthService> logger) : IAuthService
 {
     private readonly PasswordHasher<AppUser> _passwordHasher = new();
     private readonly PasswordHasher<AuthVerificationCode> _codeHasher = new();
@@ -22,7 +24,7 @@ public sealed class DbAuthService(
         SendRegisterEmailCodeRequest request,
         CancellationToken cancellationToken)
     {
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var normalizedEmail = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
         var exists = await dbContext.Users.AnyAsync(x => x.Email == normalizedEmail, cancellationToken);
         if (exists)
         {
@@ -39,19 +41,18 @@ public sealed class DbAuthService(
         };
         verificationCode.CodeHash = _codeHasher.HashPassword(verificationCode, code);
 
-        dbContext.AuthVerificationCodes.Add(verificationCode);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
         try
         {
             await emailSender.SendRegisterVerificationCodeAsync(normalizedEmail, code, cancellationToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            dbContext.AuthVerificationCodes.Remove(verificationCode);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogError(ex, "Failed to send registration verification email to {Email}", normalizedEmail);
             return new RegisterEmailCodeResult { Status = RegisterEmailCodeStatus.EmailDeliveryFailed };
         }
+
+        dbContext.AuthVerificationCodes.Add(verificationCode);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new RegisterEmailCodeResult
         {
@@ -66,8 +67,9 @@ public sealed class DbAuthService(
         CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
+        var verificationId = (request.EmailVerificationId ?? string.Empty).Trim();
         var verificationCode = await dbContext.AuthVerificationCodes
-            .SingleOrDefaultAsync(x => x.Id == request.EmailVerificationId.Trim(), cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == verificationId, cancellationToken);
 
         if (verificationCode is null || verificationCode.ConsumedAtUtc is not null)
         {
@@ -87,7 +89,7 @@ public sealed class DbAuthService(
         var codeResult = _codeHasher.VerifyHashedPassword(
             verificationCode,
             verificationCode.CodeHash,
-            request.Code.Trim());
+            (request.Code ?? string.Empty).Trim());
 
         if (codeResult is PasswordVerificationResult.Failed)
         {
@@ -139,8 +141,8 @@ public sealed class DbAuthService(
 
     public async Task<RegisterResult> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
-        var normalizedUserName = request.UserName.Trim();
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var normalizedUserName = (request.UserName ?? string.Empty).Trim();
+        var normalizedEmail = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
         var exists = await dbContext.Users.AnyAsync(
             x => x.UserName == normalizedUserName || x.Email == normalizedEmail, cancellationToken);
 
@@ -150,8 +152,9 @@ public sealed class DbAuthService(
         }
 
         var now = DateTime.UtcNow;
+        var verificationId = (request.EmailVerificationId ?? string.Empty).Trim();
         var verificationCode = await dbContext.AuthVerificationCodes
-            .SingleOrDefaultAsync(x => x.Id == request.EmailVerificationId.Trim(), cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == verificationId, cancellationToken);
 
         if (verificationCode is null || verificationCode.VerifiedAtUtc is null)
         {
