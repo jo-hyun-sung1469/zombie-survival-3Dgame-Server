@@ -8,4 +8,5 @@ public sealed class PlayerStatsResponse
     public required int Defense { get; init; }
     public required double MoveSpeed { get; init; }
     public required double CriticalChance { get; init; }
+    public required IReadOnlyList<PlayerStatUpgradeStateResponse> StatUpgrades { get; init; }
 }
