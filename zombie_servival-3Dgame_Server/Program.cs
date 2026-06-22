@@ -64,7 +64,8 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IGachaService, GachaService>();
 builder.Services.AddScoped<IFirearmService, FirearmService>();
 builder.Services.AddScoped<IWeaponUpgradeService, WeaponUpgradeService>();
-builder.Services.AddSingleton<IPlayerService, PlayerService>();
+builder.Services.AddScoped<IPlayerService, PlayerService>();
+builder.Services.AddScoped<IPlayerStatUpgradeService, PlayerStatUpgradeService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
