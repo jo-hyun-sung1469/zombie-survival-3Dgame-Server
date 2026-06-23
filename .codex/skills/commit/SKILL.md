@@ -58,10 +58,12 @@ Description rules:
 
 1. Inspect changes with `git status` and targeted `git diff`.
 2. Separate unrelated changes before staging.
-3. Group one logical unit per commit.
-4. Stage only the intended files or hunks.
-5. Commit with `git commit -m "type(scope): description"` using a Korean description.
-6. Verify recent history with `git log --oneline -n <count>`.
+3. Split work into logical commits instead of putting all current changes into one commit.
+4. Group one logical unit per commit.
+5. Write each commit message so it describes the specific change in that commit.
+6. Stage only the intended files or hunks.
+7. Commit with `git commit -m "type(scope): description"` using a Korean description.
+8. Verify recent history with `git log --oneline -n <count>`.
 
 ## User Choice Points
 
@@ -101,6 +103,7 @@ Write the change summary content in Korean.
 ## Guardrails
 
 - Do not mix feature, refactor, and docs changes in one commit unless they are inseparable.
+- Do not collapse unrelated or independently reviewable changes into one commit just because they are all currently modified.
 - Do not stage generated files, local databases, temp outputs, or IDE noise unless the user explicitly wants them committed.
 - If the worktree contains unrelated user changes, leave them untouched and commit only the requested subset.
 - If the user asked to push, confirm the branch and remote after committing.

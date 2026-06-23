@@ -66,12 +66,14 @@ zombie_servival-3Dgame_Server/
 ## Harness Decision Guardrails
 
 - Before changing code, inspect the relevant files and current git state first.
+- Before making code changes when the implementation direction was not explicitly chosen by the user, present exactly three meaningful implementation options and mark one as `(Recommended)`.
 - Ask for user choice only for decisions that materially change the outcome, such as implementation direction, risky security behavior, commit scope, or commit message.
 - When user input is needed, present exactly three meaningful options and mark one as `(Recommended)`.
 - Limit decision conversations to 25 turns for important decisions and 15 turns for minor decisions.
 - If the turn limit is reached, summarize the options, choose the recommended safe default, and continue unless user input is strictly required.
 - Do not ask about facts that can be discovered from the repository or tooling.
 - Keep unrelated worktree changes out of commits unless the user explicitly chooses to include them.
+- When committing, split changes into logical commits instead of putting all current changes into one commit, and make each commit message describe its own change.
 - Keep a quick-view change summary in `.codex/change-summaries/CHANGE_SUMMARY.md` when harness, workflow, or multi-file implementation changes are made.
 - The summary file should list the date, purpose, changed areas, verification, and any remaining user decisions.
 - Write change summary content in Korean.
