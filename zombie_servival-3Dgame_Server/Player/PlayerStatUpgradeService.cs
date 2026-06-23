@@ -25,7 +25,6 @@ public sealed class PlayerStatUpgradeService(
             return new PlayerStatUpgradeResult { Status = PlayerStatUpgradeStatus.InvalidStat };
         }
 
-        
         var saveData = await playerSaveDataStore.GetOrCreateAsync(playerId, cancellationToken);
         var upgradeState = saveData.StatUpgradeStates
             .SingleOrDefault(x => string.Equals(x.StatName, canonicalStatName, StringComparison.OrdinalIgnoreCase));
@@ -88,7 +87,7 @@ public sealed class PlayerStatUpgradeService(
             Response = new UpgradePlayerStatResponse
             {
                 UpgradedStat = canonicalStatName,
-                CurrentUpgradeLevel = upgradeState.UpgradeLevel,
+                CurrentLevel = upgradeState.UpgradeLevel,
                 MaxLevel = _statUpgrades.MaxLevel,
                 UpgradeCost = upgradeCost,
                 NextUpgradeCost = nextUpgradeCost,

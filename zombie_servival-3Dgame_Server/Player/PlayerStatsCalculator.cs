@@ -32,7 +32,7 @@ internal static class PlayerStatsCalculator
                 .Select(x => new PlayerStatUpgradeStateResponse
                 {
                     StatName = x,
-                    UpgradeLevel = GetUpgradeLevel(x),
+                    Level = GetUpgradeLevel(x),
                     MaxLevel = upgradeOptions.MaxLevel,
                     NextUpgradeCost = GetUpgradeLevel(x) >= upgradeOptions.MaxLevel
                         ? 0

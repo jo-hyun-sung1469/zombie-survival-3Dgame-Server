@@ -8,5 +8,5 @@ public sealed class PlayerStatUpgradeState
     public int PlayerSaveDataId { get; set; }
     public PlayerSaveData? PlayerSaveData { get; set; }
     public string StatName { get; set; } = string.Empty;
-    public int Level { get; set; }
+    public int UpgradeLevel { get; set; }
 }
