@@ -105,7 +105,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => new { x.PlayerSaveDataId, x.StatName }).IsUnique();
             entity.Property(x => x.StatName).HasMaxLength(50).IsRequired();
-            entity.Property(x => x.Level).IsRequired();
+            entity.Property(x => x.UpgradeLevel).IsRequired();
         });
     }
 }
