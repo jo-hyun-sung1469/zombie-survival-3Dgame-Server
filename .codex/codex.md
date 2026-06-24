@@ -66,7 +66,8 @@ zombie_servival-3Dgame_Server/
 ## Harness Decision Guardrails
 
 - Before changing code, inspect the relevant files and current git state first.
-- Before making code changes when the implementation direction was not explicitly chosen by the user, present exactly three meaningful implementation options and mark one as `(Recommended)`.
+- Before making a sudden or unplanned code change, or introducing a new implementation direction, do not decide on behalf of the developer; present exactly three meaningful implementation options, mark one as `(Recommended)`, and wait for the developer's choice.
+- If it is unclear whether a code change is expected, treat it as requiring developer choice instead of making a judgment call.
 - Ask for user choice only for decisions that materially change the outcome, such as implementation direction, risky security behavior, commit scope, or commit message.
 - When user input is needed, present exactly three meaningful options and mark one as `(Recommended)`.
 - Limit decision conversations to 25 turns for important decisions and 15 turns for minor decisions.
