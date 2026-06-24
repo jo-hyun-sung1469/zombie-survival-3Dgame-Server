@@ -1,7 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using zombie_survival_3Dgame_Server.Contracts.Player;
 using zombie_survival_3Dgame_Server.Data;
-using zombie_survival_3Dgame_Server.Inventory;
+using zombie_survival_3Dgame_Server.Inventory.Models;
 using zombie_survival_3Dgame_Server.Options;
 using zombie_survival_3Dgame_Server.Player.Models;
 
@@ -9,7 +10,6 @@ namespace zombie_survival_3Dgame_Server.Player;
 
 public sealed class PlayerStatUpgradeService(
     GameDbContext dbContext,
-    IPlayerSaveDataStore playerSaveDataStore,
     IOptions<PlayerOptions> playerOptions) : IPlayerStatUpgradeService
 {
     private readonly PlayerBaseStatsOptions _baseStats = playerOptions.Value.BaseStats;
@@ -25,7 +25,7 @@ public sealed class PlayerStatUpgradeService(
             return new PlayerStatUpgradeResult { Status = PlayerStatUpgradeStatus.InvalidStat };
         }
 
-        var saveData = await playerSaveDataStore.GetOrCreateAsync(playerId, cancellationToken);
+        var saveData = await GetOrCreateSaveDataWithStatUpgradesAsync(playerId, cancellationToken);
         var upgradeState = saveData.StatUpgradeStates
             .SingleOrDefault(x => string.Equals(x.StatName, canonicalStatName, StringComparison.OrdinalIgnoreCase));
 
@@ -73,9 +73,8 @@ public sealed class PlayerStatUpgradeService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var nextUpgradeCost = upgradeState.UpgradeLevel >= _statUpgrades.MaxLevel
-            ? 0
-            : PlayerStatsCalculator.CalculateUpgradeCost(_statUpgrades, upgradeState.UpgradeLevel);
+        var nextUpgradeCost = upgradeState.UpgradeLevel >= _statUpgrades.MaxLevel ? 
+            0 : PlayerStatsCalculator.CalculateUpgradeCost(_statUpgrades, upgradeState.UpgradeLevel);
 
         return new PlayerStatUpgradeResult
         {
@@ -123,5 +122,28 @@ public sealed class PlayerStatUpgradeService(
         }
 
         return false;
+    }
+
+    private async Task<PlayerSaveData> GetOrCreateSaveDataWithStatUpgradesAsync(
+        string playerId,
+        CancellationToken cancellationToken)
+    {
+        var saveData = await dbContext.PlayerSaveData
+            .Include(x => x.StatUpgradeStates)
+            .SingleOrDefaultAsync(x => x.PlayerId == playerId, cancellationToken);
+
+        if (saveData is not null)
+        {
+            return saveData;
+        }
+
+        saveData = new PlayerSaveData
+        {
+            PlayerId = playerId,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+
+        dbContext.PlayerSaveData.Add(saveData);
+        return saveData;
     }
 }
