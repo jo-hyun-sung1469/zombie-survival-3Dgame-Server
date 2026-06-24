@@ -36,3 +36,38 @@
 - 변경 영역: `Auth/DbAuthService.cs`, `Auth/SmtpEmailSender.cs`, `zombie_survival-3Dgame_Server.csproj`.
 - 검증: `dotnet build`가 경고와 오류 없이 통과했습니다.
 - 남은 사용자 결정: GitHub 리뷰 스레드 해결 표시 및 코멘트 답변 여부는 사용자가 선택해야 합니다.
+
+## 2026-06-18 - 플레이어 스텟 강화 구현
+
+- 목적: 플레이어가 골드를 사용해 전투 스텟을 선택 강화하고, 최종 스텟 조회에 강화 보너스를 반영하도록 구현했습니다.
+- 변경 영역: `Player`, `Contracts/Player`, `Inventory/Models`, `Data/GameDbContext.cs`, `Options`, `Program.cs`, `zombie_servival-3Dgame_Server.http`.
+- 검증: `dotnet build`가 경고와 오류 없이 통과했습니다.
+- 남은 사용자 결정: 기존 MySQL DB에 새 `PlayerStatUpgradeStates` 테이블을 반영하는 운영 방식 결정이 필요합니다.
+
+## 2026-06-20 - 스텟 강화   레벨 명확화
+
+- 목적: 플레이어 레벨과 혼동되지 않도록 스텟별 강화 레벨을 `UpgradeLevel`로 명확히 하고, 기본 1레벨에서 시작하도록 정리했습니다.
+- 변경 영역: `Player`, `Contracts/Player`, `Data/GameDbContext.cs`.
+- 검증: `dotnet build`가 경고와 오류 없이 통과했습니다.
+- 남은 사용자 결정: 기존 DB에 `Level` 컬럼이 이미 만들어졌다면 `UpgradeLevel` 컬럼으로 수동 반영하거나 개발 DB를 재생성해야 합니다.
+
+## 2026-06-23 - 스텟 강화 저장 조회 도메인 분리
+
+- 목적: `Inventory` 저장소가 스텟 강화 상태를 Include하지 않도록 하고, 스텟 강화 상태 조회는 `Player` 도메인의 서비스에서 직접 처리하도록 분리했습니다.
+- 변경 영역: `Inventory/PlayerSaveDataStore.cs`, `Player/PlayerStatUpgradeService.cs`.
+- 검증: `dotnet build --no-restore`가 경고와 오류 없이 통과했습니다.
+- 남은 사용자 결정: 없음.
+
+## 2026-06-24 - 하네스 코드 변경 및 커밋 규칙 강화
+
+- 목적: 갑작스럽거나 계획되지 않은 코드 변경은 AI가 과도하게 판단하지 않고 개발자에게 세 가지 선택지를 제시한 뒤 선택을 기다리도록 하고, 커밋 시 변경사항을 논리 단위로 세분화하도록 하네스 규칙을 강화했습니다.
+- 변경 영역: `AGENTS.md`, `.codex/codex.md`, `.codex/skills/commit/SKILL.md`.
+- 검증: `rg`로 신규 가드레일과 커밋 분리 문구 반영을 확인했습니다.
+- 남은 사용자 결정: 없음.
+
+## 2026-06-24 - 중복 `.agents` 스킬 경로 제거
+
+- 목적: `.codex/skills`를 기준 스킬 경로로 유지하고, 중복 관리되던 `.agents/skills`를 제거해 스킬 수정 지점을 단일화했습니다.
+- 변경 영역: `.agents/skills`.
+- 검증: `rg`로 `.agents` 참조가 남아 있지 않은 것을 확인했습니다.
+- 남은 사용자 결정: 없음.
