@@ -85,3 +85,17 @@
 - 변경 영역: `Player`, `Firearm`, `Inventory`, `Gacha`, `WeaponUpgrade`, `Contracts`, `Data/GameDbContext.cs`, `appsettings.json`, `player-defaults.example.json`.
 - 검증: `rg`로 이전 `CriticalMultiplier` 참조가 제거되고 `CriticalChance`는 legacy 보정 상수만 남은 것을 확인했으며, `dotnet build`가 경고와 오류 없이 통과했습니다.
 - 남은 사용자 결정: 기존 MySQL DB를 유지하려면 `FirearmDefinitions`와 `PlayerWeaponStates`의 `CriticalMultiplier` 컬럼을 `HeadshotDamageMultiplier`로 수동 변경하거나 개발 DB를 재생성해야 합니다.
+
+## 2026-06-25 - PR #18 리뷰 코멘트 반영
+
+- 목적: PR #18에 올라온 미해결 리뷰 코멘트 9건을 반영해 스텟 강화와 기본 데이터 보정 로직의 런타임 예외 및 데이터 유실 가능성을 줄였습니다.
+- 변경 영역: `Player/PlayerStatsCalculator.cs`, `Player/PlayerController.cs`, `Player/PlayerStatUpgradeService.cs`, `Inventory/PlayerDefaultDataRepairService.cs`.
+- 반영 내용:
+  - 스텟 강화 비용 계산에서 `Math.Pow` 결과가 `NaN`, `Infinity`, `int.MaxValue` 이상이면 `int.MaxValue`로 제한해 오버플로우로 인한 음수 비용 가능성을 차단했습니다.
+  - 스텟 조회 계산에서 중복 `StatName`이 있어도 `ToDictionary` 예외가 발생하지 않도록 루프 기반 딕셔너리 구성으로 바꾸고, 중복 중 더 높은 강화 레벨을 사용하도록 했습니다.
+  - `CriticalChance`에서 `HeadshotDamageMultiplier`로 레거시 스텟명을 보정할 때 양쪽 행이 모두 있으면 기존 레거시 강화 레벨을 삭제하지 않고 더 높은 레벨을 보존하도록 했습니다.
+  - 레거시 보정 및 스텟 강화 조회에서 `SingleOrDefault`를 `FirstOrDefault`로 바꿔 중복 데이터가 있어도 API가 크래시되지 않도록 했습니다.
+  - 스텟 강화 API 요청 본문에 `[FromBody]`를 명시하고, 요청 본문 또는 `StatName`이 비어 있으면 `400 Bad Request`를 반환하도록 했습니다.
+  - `PlayerDefaultData` 설정의 `WeaponStates` 또는 `StatUpgradeLevels`가 누락/null이어도 기본 데이터 보정 중 `NullReferenceException`이 발생하지 않도록 방어했습니다.
+- 검증: `dotnet build`가 경고와 오류 없이 통과했습니다.
+- 남은 사용자 결정: GitHub 리뷰 스레드에 답변/해결 표시를 할지, 그리고 이 수정사항을 별도 커밋 후 push할지는 사용자가 선택해야 합니다.
