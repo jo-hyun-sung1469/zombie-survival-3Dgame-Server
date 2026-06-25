@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using zombie_survival_3Dgame_Server.Auth;
 using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.Auth;
+using zombie_survival_3Dgame_Server.Inventory;
 
 namespace zombie_survival_3Dgame_Server.Auth;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IAuthService authService, IJwtTokenService jwtTokenService) : ControllerBase
+public sealed class AuthController(
+    IAuthService authService,
+    IJwtTokenService jwtTokenService,
+    IPlayerDefaultDataRepairService playerDefaultDataRepairService) : ControllerBase
 {
     [HttpPost("register/email-code")]
     [AllowAnonymous]
@@ -99,6 +102,7 @@ public sealed class AuthController(IAuthService authService, IJwtTokenService jw
             return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Invalid username or password.");
         }
 
+        await playerDefaultDataRepairService.EnsureAsync(user.Id, cancellationToken);
         var token = jwtTokenService.CreateToken(user);
         return Ok(token);
     }

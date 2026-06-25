@@ -1,0 +1,16 @@
+{
+  "PlayerDefaultData": {
+    "InitialGold": 0,
+    "RepairGoldWhenZero": false,
+    "DefaultWeaponLevel": 1,
+    "WeaponStates": {
+      "Shotgun": true
+    },
+    "StatUpgradeLevels": {
+      "MaxHealth": 1,
+      "AttackPower": 1,
+      "Defense": 1,
+      "HeadshotDamageMultiplier": 1
+    }
+  }
+}

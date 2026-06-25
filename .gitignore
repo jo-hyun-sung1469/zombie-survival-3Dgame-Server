@@ -4,3 +4,4 @@
 **/temp-build/
 **/game-data.db/
 **/appsettings.Development.json
+**/player-defaults.local.json

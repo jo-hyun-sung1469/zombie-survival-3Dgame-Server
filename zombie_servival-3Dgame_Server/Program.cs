@@ -13,6 +13,7 @@ using zombie_survival_3Dgame_Server.Player;
 using zombie_survival_3Dgame_Server.WeaponUpgrade;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("player-defaults.local.json", optional: true, reloadOnChange: true);
 
 // Add services to the container.
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
@@ -21,6 +22,7 @@ builder.Services.Configure<SmtpEmailOptions>(builder.Configuration.GetSection(Sm
 builder.Services.Configure<GachaOptions>(builder.Configuration.GetSection(GachaOptions.SectionName));
 builder.Services.Configure<WeaponUpgradeOptions>(builder.Configuration.GetSection(WeaponUpgradeOptions.SectionName));
 builder.Services.Configure<PlayerOptions>(builder.Configuration.GetSection(PlayerOptions.SectionName));
+builder.Services.Configure<PlayerDefaultDataOptions>(builder.Configuration.GetSection(PlayerDefaultDataOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                  ?? throw new InvalidOperationException("JWT settings are missing.");
 if (string.IsNullOrWhiteSpace(jwtOptions.SecretKey))
@@ -60,6 +62,7 @@ builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IAuthService, DbAuthService>();
 builder.Services.AddScoped<IPlayerSaveDataStore, PlayerSaveDataStore>();
+builder.Services.AddScoped<IPlayerDefaultDataRepairService, PlayerDefaultDataRepairService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IGachaService, GachaService>();
 builder.Services.AddScoped<IFirearmService, FirearmService>();
