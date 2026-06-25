@@ -30,7 +30,7 @@ public sealed class PlayerStatUpgradeService(
         var saveData = await GetOrCreateSaveDataWithStatUpgradesAsync(playerId, cancellationToken);
         RepairLegacyStatUpgradeNames(saveData);
         var upgradeState = saveData.StatUpgradeStates
-            .SingleOrDefault(x => string.Equals(x.StatName, canonicalStatName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(x => string.Equals(x.StatName, canonicalStatName, StringComparison.OrdinalIgnoreCase));
 
         var currentUpgradeLevel = Math.Clamp(
             upgradeState?.UpgradeLevel ?? PlayerStatsCalculator.DefaultUpgradeLevel,
@@ -144,7 +144,7 @@ public sealed class PlayerStatUpgradeService(
             return;
         }
 
-        var headshotState = saveData.StatUpgradeStates.SingleOrDefault(
+        var headshotState = saveData.StatUpgradeStates.FirstOrDefault(
             x => string.Equals(x.StatName, HeadshotDamageMultiplierStatName, StringComparison.OrdinalIgnoreCase));
         foreach (var legacyState in legacyStates)
         {
@@ -155,6 +155,7 @@ public sealed class PlayerStatUpgradeService(
                 continue;
             }
 
+            headshotState.UpgradeLevel = Math.Max(headshotState.UpgradeLevel, legacyState.UpgradeLevel);
             saveData.StatUpgradeStates.Remove(legacyState);
             dbContext.PlayerStatUpgradeStates.Remove(legacyState);
         }
