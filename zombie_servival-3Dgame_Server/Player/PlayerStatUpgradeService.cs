@@ -12,6 +12,8 @@ public sealed class PlayerStatUpgradeService(
     GameDbContext dbContext,
     IOptions<PlayerOptions> playerOptions) : IPlayerStatUpgradeService
 {
+    private const string LegacyCriticalChanceStatName = "CriticalChance";
+    private const string HeadshotDamageMultiplierStatName = "HeadshotDamageMultiplier";
     private readonly PlayerBaseStatsOptions _baseStats = playerOptions.Value.BaseStats;
     private readonly PlayerStatUpgradeOptions _statUpgrades = playerOptions.Value.StatUpgrades;
 
@@ -26,6 +28,7 @@ public sealed class PlayerStatUpgradeService(
         }
 
         var saveData = await GetOrCreateSaveDataWithStatUpgradesAsync(playerId, cancellationToken);
+        RepairLegacyStatUpgradeNames(saveData);
         var upgradeState = saveData.StatUpgradeStates
             .SingleOrDefault(x => string.Equals(x.StatName, canonicalStatName, StringComparison.OrdinalIgnoreCase));
 
@@ -110,6 +113,13 @@ public sealed class PlayerStatUpgradeService(
         }
 
         var requestedStatName = statName.Trim();
+        if (string.Equals(requestedStatName, LegacyCriticalChanceStatName, StringComparison.OrdinalIgnoreCase)
+            && _statUpgrades.IncreasesByStat.ContainsKey(HeadshotDamageMultiplierStatName))
+        {
+            canonicalStatName = HeadshotDamageMultiplierStatName;
+            return true;
+        }
+
         foreach (var availableStatName in _statUpgrades.IncreasesByStat.Keys)
         {
             if (!string.Equals(availableStatName, requestedStatName, StringComparison.OrdinalIgnoreCase))
@@ -122,6 +132,32 @@ public sealed class PlayerStatUpgradeService(
         }
 
         return false;
+    }
+
+    private void RepairLegacyStatUpgradeNames(PlayerSaveData saveData)
+    {
+        var legacyStates = saveData.StatUpgradeStates
+            .Where(x => string.Equals(x.StatName, LegacyCriticalChanceStatName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (legacyStates.Count == 0)
+        {
+            return;
+        }
+
+        var headshotState = saveData.StatUpgradeStates.SingleOrDefault(
+            x => string.Equals(x.StatName, HeadshotDamageMultiplierStatName, StringComparison.OrdinalIgnoreCase));
+        foreach (var legacyState in legacyStates)
+        {
+            if (headshotState is null)
+            {
+                legacyState.StatName = HeadshotDamageMultiplierStatName;
+                headshotState = legacyState;
+                continue;
+            }
+
+            saveData.StatUpgradeStates.Remove(legacyState);
+            dbContext.PlayerStatUpgradeStates.Remove(legacyState);
+        }
     }
 
     private async Task<PlayerSaveData> GetOrCreateSaveDataWithStatUpgradesAsync(

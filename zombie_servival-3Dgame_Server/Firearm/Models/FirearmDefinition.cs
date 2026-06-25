@@ -13,5 +13,5 @@ public sealed class FirearmDefinition
     public int MagazineSize { get; set; }
     public double ReloadTimeSeconds { get; set; }
     public double RangeMeters { get; set; }
-    public double CriticalMultiplier { get; set; }
+    public double HeadshotDamageMultiplier { get; set; }
 }

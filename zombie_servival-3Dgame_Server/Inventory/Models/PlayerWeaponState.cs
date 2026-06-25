@@ -15,7 +15,7 @@ public sealed class PlayerWeaponState
     public int MagazineSize { get; set; }
     public double ReloadTimeSeconds { get; set; }
     public double RangeMeters { get; set; }
-    public double CriticalMultiplier { get; set; }
+    public double HeadshotDamageMultiplier { get; set; }
     public PlayerSaveData? PlayerSaveData { get; set; }
     public FirearmDefinition? FirearmDefinition { get; set; }
 }

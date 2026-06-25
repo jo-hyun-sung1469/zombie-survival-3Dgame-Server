@@ -7,6 +7,6 @@ public sealed class PlayerStatsResponse
     public required int AttackPower { get; init; }
     public required int Defense { get; init; }
     public required double MoveSpeed { get; init; }
-    public required double CriticalChance { get; init; }
+    public required double HeadshotDamageMultiplier { get; init; }
     public required IReadOnlyList<PlayerStatUpgradeStateResponse> StatUpgrades { get; init; }
 }

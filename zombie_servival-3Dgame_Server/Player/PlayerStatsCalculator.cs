@@ -26,7 +26,8 @@ internal static class PlayerStatsCalculator
             AttackPower = RoundToInt(baseStats.AttackPower + GetBonus("AttackPower")),
             Defense = RoundToInt(baseStats.Defense + GetBonus("Defense")),
             MoveSpeed = baseStats.MoveSpeed,
-            CriticalChance = RoundToFourDecimals(baseStats.CriticalChance + GetBonus("CriticalChance")),
+            HeadshotDamageMultiplier = RoundToFourDecimals(
+                baseStats.HeadshotDamageMultiplier + GetBonus("HeadshotDamageMultiplier")),
             StatUpgrades = upgradeOptions.IncreasesByStat.Keys
                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                 .Select(x => new PlayerStatUpgradeStateResponse

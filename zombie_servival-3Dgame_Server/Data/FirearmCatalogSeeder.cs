@@ -27,7 +27,7 @@ public static class FirearmCatalogSeeder
                 existing.MagazineSize = item.MagazineSize;
                 existing.ReloadTimeSeconds = item.ReloadTimeSeconds;
                 existing.RangeMeters = item.RangeMeters;
-                existing.CriticalMultiplier = item.CriticalMultiplier;
+                existing.HeadshotDamageMultiplier = item.HeadshotDamageMultiplier;
                 continue;
             }
 
@@ -43,7 +43,7 @@ public static class FirearmCatalogSeeder
                 MagazineSize = item.MagazineSize,
                 ReloadTimeSeconds = item.ReloadTimeSeconds,
                 RangeMeters = item.RangeMeters,
-                CriticalMultiplier = item.CriticalMultiplier
+                HeadshotDamageMultiplier = item.HeadshotDamageMultiplier
             });
         }
 

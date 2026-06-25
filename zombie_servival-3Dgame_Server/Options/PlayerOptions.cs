@@ -14,7 +14,7 @@ public sealed class PlayerBaseStatsOptions
     public int AttackPower { get; init; } = 10;
     public int Defense { get; init; } = 5;
     public double MoveSpeed { get; init; } = 5.0;
-    public double CriticalChance { get; init; } = 0.05;
+    public double HeadshotDamageMultiplier { get; init; } = 2.0;
 }
 
 public sealed class PlayerStatUpgradeOptions
@@ -27,6 +27,6 @@ public sealed class PlayerStatUpgradeOptions
         ["MaxHealth"] = 50,
         ["AttackPower"] = 5,
         ["Defense"] = 1,
-        ["CriticalChance"] = 0.01
+        ["HeadshotDamageMultiplier"] = 0.1
     };
 }

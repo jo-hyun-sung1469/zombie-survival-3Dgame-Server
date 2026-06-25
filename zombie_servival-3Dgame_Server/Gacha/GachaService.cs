@@ -100,7 +100,7 @@ public sealed class GachaService(
                 MagazineSize = reward.MagazineSize,
                 ReloadTimeSeconds = reward.ReloadTimeSeconds,
                 RangeMeters = reward.RangeMeters,
-                CriticalMultiplier = reward.CriticalMultiplier
+                HeadshotDamageMultiplier = reward.HeadshotDamageMultiplier
             });
         }
         else

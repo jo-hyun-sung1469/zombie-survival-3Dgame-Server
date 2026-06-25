@@ -75,7 +75,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.MagazineSize).IsRequired();
             entity.Property(x => x.ReloadTimeSeconds).IsRequired();
             entity.Property(x => x.RangeMeters).IsRequired();
-            entity.Property(x => x.CriticalMultiplier).IsRequired();
+            entity.Property(x => x.HeadshotDamageMultiplier).IsRequired();
 
             entity.HasOne(x => x.FirearmDefinition)
                 .WithMany()
@@ -97,7 +97,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.MagazineSize).IsRequired();
             entity.Property(x => x.ReloadTimeSeconds).IsRequired();
             entity.Property(x => x.RangeMeters).IsRequired();
-            entity.Property(x => x.CriticalMultiplier).IsRequired();
+            entity.Property(x => x.HeadshotDamageMultiplier).IsRequired();
         });
 
         modelBuilder.Entity<PlayerStatUpgradeState>(entity =>
