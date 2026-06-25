@@ -14,10 +14,19 @@ internal static class PlayerStatsCalculator
         PlayerStatUpgradeOptions upgradeOptions,
         IReadOnlyCollection<PlayerStatUpgradeState> upgradeStates)
     {
-        var levelsByStat = upgradeStates.ToDictionary(
-            x => x.StatName,
-            x => Math.Clamp(x.UpgradeLevel, DefaultUpgradeLevel, upgradeOptions.MaxLevel),
-            StringComparer.OrdinalIgnoreCase);
+        var levelsByStat = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var upgradeState in upgradeStates)
+        {
+            if (string.IsNullOrWhiteSpace(upgradeState.StatName))
+            {
+                continue;
+            }
+
+            var upgradeLevel = Math.Clamp(upgradeState.UpgradeLevel, DefaultUpgradeLevel, upgradeOptions.MaxLevel);
+            levelsByStat[upgradeState.StatName] = Math.Max(
+                upgradeLevel,
+                levelsByStat.GetValueOrDefault(upgradeState.StatName, DefaultUpgradeLevel));
+        }
 
         return new PlayerStatsResponse
         {
@@ -60,7 +69,13 @@ internal static class PlayerStatsCalculator
         var multiplier = Math.Pow(
             1 + upgradeOptions.CostIncreaseRate,
             Math.Max(0, currentUpgradeLevel - DefaultUpgradeLevel));
-        return (int)Math.Ceiling(upgradeOptions.BaseCost * multiplier);
+        var cost = upgradeOptions.BaseCost * multiplier;
+        if (double.IsNaN(cost) || double.IsInfinity(cost) || cost >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        return (int)Math.Ceiling(cost);
     }
 
     private static int RoundToInt(double value)
