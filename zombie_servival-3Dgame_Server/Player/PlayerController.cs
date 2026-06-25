@@ -27,9 +27,14 @@ public sealed class PlayerController(
 
     [HttpPost("upgrades")]
     public async Task<ActionResult<UpgradePlayerStatResponse>> UpgradeStatAsync(
-        UpgradePlayerStatRequest request,
+        [FromBody] UpgradePlayerStatRequest? request,
         CancellationToken cancellationToken)
     {
+        if (request is null || string.IsNullOrWhiteSpace(request.StatName))
+        {
+            return ApiProblemDetails.Create(StatusCodes.Status400BadRequest, "Stat name is required.");
+        }
+
         var playerId = User.FindFirst("userId")?.Value;
         if (string.IsNullOrWhiteSpace(playerId))
         {
