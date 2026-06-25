@@ -2,6 +2,20 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-06-25 - 서브 에이전트 폴더 정리와 성능/범위 가드 추가
+
+- 목적: 루트에 흩어진 서브 에이전트 초안을 공식 `.codex/agents` 구조로 정리하고, 성능 리뷰 스킬과 과도한 단독 판단/광범위 코드 변경 제한 훅을 추가했습니다.
+- 변경 영역: `.codex/agents`, `.codex/skills/performance-review`, `.codex/skills/code-review/SKILL.md`, `.codex/skills/security-checklist/SKILL.md`, `.codex/hooks`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 검증: 에이전트 TOML 파싱, 스킬 frontmatter 대체 검증, PowerShell 훅 self-test, stale 참조 검색을 실행했습니다. `quick_validate.py`는 로컬 Python의 `yaml` 모듈 누락으로 실행되지 않았습니다.
+- 남은 사용자 결정: Codex에서 `/hooks`로 신규/변경 훅을 검토하고 신뢰 처리할지 결정하면 됩니다.
+
+## 2026-06-25 - 좀비 서버 Codex 훅 추가
+
+- 목적: 다른 프로젝트 훅을 직접 복사하지 않고, 현재 좀비 서바이벌 서버의 스킬과 규칙에 맞춘 Codex 훅을 추가했습니다.
+- 변경 영역: `.codex/hooks.json`, `.codex/hooks`, `.gitignore`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 검증: PowerShell 훅 스크립트 self-test, stdin payload 테스트, `hooks.json` 파싱, 종료 품질 게이트 실행을 확인했습니다.
+- 남은 사용자 결정: Codex에서 `/hooks`로 새 프로젝트 훅을 검토하고 신뢰 처리할지 결정하면 됩니다.
+
 ## 2026-06-04 - 하네스 결정 가드레일
 
 - 목적: 사용자 결정 지점에 가드레일을 추가하고 중요한 선택을 쉽게 검토할 수 있게 정리했습니다.
@@ -99,3 +113,4 @@
   - `PlayerDefaultData` 설정의 `WeaponStates` 또는 `StatUpgradeLevels`가 누락/null이어도 기본 데이터 보정 중 `NullReferenceException`이 발생하지 않도록 방어했습니다.
 - 검증: `dotnet build`가 경고와 오류 없이 통과했습니다.
 - 남은 사용자 결정: GitHub 리뷰 스레드에 답변/해결 표시를 할지, 그리고 이 수정사항을 별도 커밋 후 push할지는 사용자가 선택해야 합니다.
+
