@@ -67,7 +67,7 @@ public sealed class PlayerDefaultDataRepairService(
         PlayerSaveData saveData,
         CancellationToken cancellationToken)
     {
-        var defaultWeaponStates = _defaults.WeaponStates
+        var defaultWeaponStates = (_defaults.WeaponStates ?? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase))
             .Where(x => !string.IsNullOrWhiteSpace(x.Key))
             .ToDictionary(x => x.Key.Trim(), x => x.Value, StringComparer.OrdinalIgnoreCase);
         if (defaultWeaponStates.Count == 0)
@@ -109,7 +109,7 @@ public sealed class PlayerDefaultDataRepairService(
 
     private bool EnsureStatUpgradeDefaults(PlayerSaveData saveData)
     {
-        var defaultStatLevels = _defaults.StatUpgradeLevels
+        var defaultStatLevels = (_defaults.StatUpgradeLevels ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase))
             .Where(x => !string.IsNullOrWhiteSpace(x.Key))
             .ToDictionary(x => x.Key.Trim(), x => x.Value, StringComparer.OrdinalIgnoreCase);
         var changed = RepairLegacyStatUpgradeNames(saveData);
@@ -144,7 +144,7 @@ public sealed class PlayerDefaultDataRepairService(
                 continue;
             }
 
-            var statUpgradeState = saveData.StatUpgradeStates.SingleOrDefault(
+            var statUpgradeState = saveData.StatUpgradeStates.FirstOrDefault(
                 x => string.Equals(x.StatName, canonicalStatName, StringComparison.OrdinalIgnoreCase));
             var upgradeLevel = ClampUpgradeLevel(defaultStatLevel.Value);
             if (statUpgradeState is null)
@@ -180,7 +180,7 @@ public sealed class PlayerDefaultDataRepairService(
             return false;
         }
 
-        var headshotState = saveData.StatUpgradeStates.SingleOrDefault(
+        var headshotState = saveData.StatUpgradeStates.FirstOrDefault(
             x => string.Equals(x.StatName, HeadshotDamageMultiplierStatName, StringComparison.OrdinalIgnoreCase));
         foreach (var legacyState in legacyStates)
         {
@@ -191,6 +191,7 @@ public sealed class PlayerDefaultDataRepairService(
                 continue;
             }
 
+            headshotState.UpgradeLevel = Math.Max(headshotState.UpgradeLevel, legacyState.UpgradeLevel);
             saveData.StatUpgradeStates.Remove(legacyState);
             dbContext.PlayerStatUpgradeStates.Remove(legacyState);
         }
