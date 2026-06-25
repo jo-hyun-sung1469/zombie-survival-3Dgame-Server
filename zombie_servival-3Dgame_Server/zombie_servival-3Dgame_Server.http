@@ -86,6 +86,22 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/Player/stats/me
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/Player/stats/upgrades
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "statName": "MaxHealth"
+}
+
+###
+
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
 Authorization: Bearer {{accessToken}}
 

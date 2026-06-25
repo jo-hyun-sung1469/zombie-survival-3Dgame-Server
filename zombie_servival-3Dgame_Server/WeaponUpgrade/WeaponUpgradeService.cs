@@ -15,7 +15,7 @@ public sealed class WeaponUpgradeService(
     IPlayerSaveDataStore playerSaveDataStore,
     IOptions<WeaponUpgradeOptions> weaponUpgradeOptions) : IWeaponUpgradeService
 {
-    private static readonly string[] UpgradeCycle = ["Damage", "FireRate", "CriticalMultiplier"];
+    private static readonly string[] UpgradeCycle = ["Damage", "FireRate", "HeadshotDamageMultiplier"];
     private readonly WeaponUpgradeOptions _weaponUpgradeOptions = weaponUpgradeOptions.Value;
 
     public async Task<WeaponUpgradeResult> UpgradeAsync(
@@ -117,12 +117,12 @@ public sealed class WeaponUpgradeService(
         var completedUpgradeCount = Math.Max(0, weaponState.WeaponLevel - 1);
         var damageUpgradeCount = CountStatUpgrades(completedUpgradeCount, "Damage");
         var fireRateUpgradeCount = CountStatUpgrades(completedUpgradeCount, "FireRate");
-        var criticalUpgradeCount = CountStatUpgrades(completedUpgradeCount, "CriticalMultiplier");
+        var criticalUpgradeCount = CountStatUpgrades(completedUpgradeCount, "HeadshotDamageMultiplier");
 
         weaponState.Damage = RoundToInt(firearm.Damage * GetStatMultiplier(damageUpgradeCount));
         weaponState.FireRate = RoundToTwoDecimals(firearm.FireRate * GetStatMultiplier(fireRateUpgradeCount));
-        weaponState.CriticalMultiplier = RoundToTwoDecimals(
-            firearm.CriticalMultiplier * GetStatMultiplier(criticalUpgradeCount));
+        weaponState.HeadshotDamageMultiplier = RoundToTwoDecimals(
+            firearm.HeadshotDamageMultiplier * GetStatMultiplier(criticalUpgradeCount));
         weaponState.MagazineSize = firearm.MagazineSize;
         weaponState.ReloadTimeSeconds = firearm.ReloadTimeSeconds;
         weaponState.RangeMeters = firearm.RangeMeters;
@@ -169,7 +169,7 @@ public sealed class WeaponUpgradeService(
             MagazineSize = weaponState.MagazineSize,
             ReloadTimeSeconds = weaponState.ReloadTimeSeconds,
             RangeMeters = weaponState.RangeMeters,
-            CriticalMultiplier = weaponState.CriticalMultiplier
+            HeadshotDamageMultiplier = weaponState.HeadshotDamageMultiplier
         };
     }
 }

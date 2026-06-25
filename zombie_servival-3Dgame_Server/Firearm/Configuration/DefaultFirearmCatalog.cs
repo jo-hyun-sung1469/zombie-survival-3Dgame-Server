@@ -17,7 +17,7 @@ public static class DefaultFirearmCatalog
             MagazineSize = 8,
             ReloadTimeSeconds = 2.7,
             RangeMeters = 18,
-            CriticalMultiplier = 1.4
+            HeadshotDamageMultiplier = 1.4
         },
         new FirearmCatalogItem
         {
@@ -31,7 +31,7 @@ public static class DefaultFirearmCatalog
             MagazineSize = 32,
             ReloadTimeSeconds = 1.8,
             RangeMeters = 24,
-            CriticalMultiplier = 1.3
+            HeadshotDamageMultiplier = 1.3
         },
         new FirearmCatalogItem
         {
@@ -45,7 +45,7 @@ public static class DefaultFirearmCatalog
             MagazineSize = 30,
             ReloadTimeSeconds = 2.1,
             RangeMeters = 40,
-            CriticalMultiplier = 1.5
+            HeadshotDamageMultiplier = 1.5
         },
         new FirearmCatalogItem
         {
@@ -59,7 +59,7 @@ public static class DefaultFirearmCatalog
             MagazineSize = 5,
             ReloadTimeSeconds = 2.9,
             RangeMeters = 85,
-            CriticalMultiplier = 2.2
+            HeadshotDamageMultiplier = 2.2
         },
         new FirearmCatalogItem
         {
@@ -73,7 +73,7 @@ public static class DefaultFirearmCatalog
             MagazineSize = 1,
             ReloadTimeSeconds = 3.6,
             RangeMeters = 55,
-            CriticalMultiplier = 1.0
+            HeadshotDamageMultiplier = 1.0
         }
     ];
 }

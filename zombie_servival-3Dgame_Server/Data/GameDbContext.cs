@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using zombie_survival_3Dgame_Server.Auth.Models;
 using zombie_survival_3Dgame_Server.Firearm.Models;
 using zombie_survival_3Dgame_Server.Inventory.Models;
+using zombie_survival_3Dgame_Server.Player.Models;
 
 namespace zombie_survival_3Dgame_Server.Data;
 
@@ -11,6 +12,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
     public DbSet<AuthVerificationCode> AuthVerificationCodes => Set<AuthVerificationCode>();
     public DbSet<PlayerSaveData> PlayerSaveData => Set<PlayerSaveData>();
     public DbSet<PlayerWeaponState> PlayerWeaponStates => Set<PlayerWeaponState>();
+    public DbSet<PlayerStatUpgradeState> PlayerStatUpgradeStates => Set<PlayerStatUpgradeState>();
     public DbSet<FirearmDefinition> FirearmDefinitions => Set<FirearmDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -52,6 +54,11 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
                 .WithOne(x => x.PlayerSaveData)
                 .HasForeignKey(x => x.PlayerSaveDataId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.StatUpgradeStates)
+                .WithOne(x => x.PlayerSaveData)
+                .HasForeignKey(x => x.PlayerSaveDataId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<PlayerWeaponState>(entity =>
@@ -68,7 +75,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.MagazineSize).IsRequired();
             entity.Property(x => x.ReloadTimeSeconds).IsRequired();
             entity.Property(x => x.RangeMeters).IsRequired();
-            entity.Property(x => x.CriticalMultiplier).IsRequired();
+            entity.Property(x => x.HeadshotDamageMultiplier).IsRequired();
 
             entity.HasOne(x => x.FirearmDefinition)
                 .WithMany()
@@ -90,7 +97,15 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.MagazineSize).IsRequired();
             entity.Property(x => x.ReloadTimeSeconds).IsRequired();
             entity.Property(x => x.RangeMeters).IsRequired();
-            entity.Property(x => x.CriticalMultiplier).IsRequired();
+            entity.Property(x => x.HeadshotDamageMultiplier).IsRequired();
+        });
+
+        modelBuilder.Entity<PlayerStatUpgradeState>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.PlayerSaveDataId, x.StatName }).IsUnique();
+            entity.Property(x => x.StatName).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.UpgradeLevel).IsRequired();
         });
     }
 }

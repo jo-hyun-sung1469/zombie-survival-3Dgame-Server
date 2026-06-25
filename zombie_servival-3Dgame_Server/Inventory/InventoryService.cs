@@ -93,7 +93,7 @@ public sealed class InventoryService(
                 MagazineSize = firearm.MagazineSize,
                 ReloadTimeSeconds = firearm.ReloadTimeSeconds,
                 RangeMeters = firearm.RangeMeters,
-                CriticalMultiplier = firearm.CriticalMultiplier
+                HeadshotDamageMultiplier = firearm.HeadshotDamageMultiplier
             });
         }
 
@@ -140,7 +140,7 @@ public sealed class InventoryService(
                     MagazineSize = x.MagazineSize,
                     ReloadTimeSeconds = x.ReloadTimeSeconds,
                     RangeMeters = x.RangeMeters,
-                    CriticalMultiplier = x.CriticalMultiplier
+                    HeadshotDamageMultiplier = x.HeadshotDamageMultiplier
                 })
                 .ToList(),
             UpdatedAtUtc = saveData.UpdatedAtUtc

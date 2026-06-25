@@ -49,7 +49,7 @@ public sealed class FirearmService(GameDbContext dbContext) : IFirearmService
             MagazineSize = weapon.MagazineSize,
             ReloadTimeSeconds = weapon.ReloadTimeSeconds,
             RangeMeters = weapon.RangeMeters,
-            CriticalMultiplier = weapon.CriticalMultiplier
+            HeadshotDamageMultiplier = weapon.HeadshotDamageMultiplier
         };
     }
 }
