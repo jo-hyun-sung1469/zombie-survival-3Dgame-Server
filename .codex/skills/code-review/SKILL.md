@@ -4,7 +4,7 @@ description: >
   Performs checklist-based automated review of C# .NET game server code.
   Use for pre-PR review, "review this code", "any issues here?", "code review please",
   or any code inspection request.
-  Reviews in priority order: Security → Server Authority → Architecture → Conventions.
+  Reviews in priority order: Security -> Server Authority -> Architecture -> Performance -> Conventions.
 ---
 
 ## Review Order
@@ -24,41 +24,49 @@ Do not ask for user input when the correct action is directly determined by the 
 - [ ] No code that applies client input values directly to server state?
   - e.g. `player.Level = request.Level` → **Block immediately**
 - [ ] Is RNG performed server-side only? (Receiving client seeds is forbidden)
-- [ ] Is packet validation handled in the Networking layer?
 - [ ] No hardcoded secrets or keys?
-- [ ] Are all rate-limited endpoints covered?
+- [ ] Are player/user identifiers read from JWT claims instead of request bodies?
+- [ ] Are login, email verification, gacha, save, and upgrade abuse paths rate-limited or at least called out?
 
 ### 2. Server Authority
 
 - [ ] Are all game logic decisions made on the server?
 - [ ] Are client-sent coordinates, speeds, or damage values never used as-is?
-- [ ] Is there anomaly detection logic for speed and position? (Security system)
+- [ ] Are client-supplied cost, reward, probability, gacha result, weapon ownership, and stat values revalidated server-side?
 
 ### 3. Architecture
 
-- [ ] Is the `System → Service → Repository` dependency one-directional?
-- [ ] Does no System directly call another System?
-- [ ] Does every system follow the `ExecuteAsync(Request, CancellationToken)` signature?
-- [ ] Is `CancellationToken` propagated down through all layers?
+- [ ] Does request flow follow `Controller -> Service -> GameDbContext/Options`?
+- [ ] Do controllers handle HTTP concerns only?
+- [ ] Do services contain business rules and database coordination?
+- [ ] Are DTOs under `Contracts/{Domain}/` and domain models under `{Domain}/Models/`?
+- [ ] Is `CancellationToken` propagated through async controller and service methods?
 
 ### 4. DTO / Models
 
 - [ ] Are Response and Dto types `init` only (immutable)?
-- [ ] Are all enums `UPPER_CASE`?
 - [ ] Are nullable reference types handled properly? (No `!` operator abuse)
+- [ ] Do request DTOs avoid privileged fields such as `PlayerId`, `UserId`, `Role`, result/reward IDs, or server-owned costs?
 
 ### 5. Async
 
 - [ ] Do all async methods have the `Async` suffix?
 - [ ] Is there no `async void`? (Except event handlers)
-- [ ] Is no `Task` returned without `await`?
+- [ ] Is there no `.Result`, `.Wait()`, or sync materialization inside request paths?
 
-### 6. Conventions
+### 6. Performance
+
+- [ ] Do read-only EF Core queries use `AsNoTracking()`?
+- [ ] Are `Include` chains limited to relationships the response actually needs?
+- [ ] Are common lookup fields indexed in `GameDbContext`?
+- [ ] Are expensive or repeatable endpoints protected against abuse?
+
+### 7. Conventions
 
 - [ ] Are all public types `PascalCase`?
 - [ ] Do log messages start with an English verb and use structured placeholders?
-- [ ] Do `GameException` messages end with a period and contain no dynamic data?
 - [ ] No unnecessary comments? (No comments on self-evident code)
+- [ ] Does `Program.cs` register new services and options consistently?
 
 ---
 
@@ -69,14 +77,14 @@ Report findings in the following format:
 ```
 ## Code Review Results
 
-### 🚨 Must Fix (Security / Server Authority)
+### Must Fix (Security / Server Authority)
 - [filename:line] Problem description + how to fix
 
-### ⚠️ Should Fix (Architecture / Conventions)
+### Should Fix (Architecture / Performance / Conventions)
 - [filename:line] Problem description + recommended fix
 
-### ✅ Passed
+### Passed
 - Summary of checked items
 ```
 
-If no issues are found, output: `✅ All checklist items passed.`
+If no issues are found, output: `All checklist items passed.`

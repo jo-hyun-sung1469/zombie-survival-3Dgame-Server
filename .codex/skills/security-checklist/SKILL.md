@@ -2,7 +2,8 @@
 name: security-checklist
 description: >
   Performs a specialized security audit of a C# .NET game server.
-  Covers anti-cheat, server authority validation, session/JWT handling, and input integrity.
+  Covers anti-cheat, server authority validation, JWT/auth flow, email verification,
+  gacha authority, player identity, save-data integrity, secrets, and abuse controls.
   Use for "security review", "check for vulnerabilities", "anti-cheat verification",
   "any hardcoded keys?", "review auth logic", or any security-related request.
 ---
@@ -22,20 +23,15 @@ Do not offer insecure options as valid choices; if a critical issue is present, 
 ### 1. Anti-Cheat
 
 ```text
-Movement Validation
-  - Is movement speed checked against server-defined thresholds?
-  - Does the server independently validate client-sent position state?
-  - Is impossible movement detected and rejected?
+Server Authority
+  - Is player identity always read from JWT claims?
+  - Are client-supplied cost, reward, probability, RNG seed, damage, ownership, and stat values rejected or revalidated?
+  - Are weapon and stat identifiers validated against server catalogs/options?
 
-Damage Validation
-  - Is damage value never accepted from the client and applied directly?
-  - Are weapon stats and damage calculations performed server-side?
-  - Is there a maximum damage or sanity check?
-
-Gacha Manipulation Prevention
+Gacha Manipulation
   - Is RNG generated server-side only?
-  - Can the client avoid modifying the probability table?
-  - Are reward decisions based on server configuration only?
+  - Is probability defined by server configuration/catalog data only?
+  - Are pull cost, reward, rarity, and owned-state changes computed on the server?
 ```
 
 ### 2. Input Validation
@@ -49,6 +45,7 @@ API Input
 Business Input
   - Are config-backed catalogs used to validate client-submitted identifiers?
   - Are unauthorized resources rejected even if the client guesses valid names?
+  - Are integer overflows and duplicate state rows handled safely?
 ```
 
 ### 3. Authentication / Session
@@ -58,6 +55,9 @@ Business Input
 - Does startup fail fast when JWT secret or connection string is missing?
 - Do authenticated endpoints reject missing or invalid `userId` claims?
 - Are role and name claims read consistently across controllers?
+- Do registration and login preserve the expected status codes: duplicate username 409, invalid login 401?
+- Are email verification codes hashed, expiring, attempt-limited, and invalidated or superseded safely?
+- Do auth responses and logs avoid leaking passwords, full tokens, verification codes, and SMTP credentials?
 ```
 
 ### 4. Hardcoded Secret Detection
@@ -67,7 +67,7 @@ Patterns to check:
 ```csharp
 var secret = "my-secret-key-123";
 const string JwtKey = "hardcoded-jwt-secret";
-string connStr = "Server=prod.db;Password=P@ssw0rd";
+string connStr = "Server=prod.db;Password=<configured-password>";
 ```
 
 Correct approach:
@@ -82,7 +82,19 @@ var secret = configuration["Jwt:SecretKey"]
 ```text
 - Is there a rate limit on gacha requests?
 - Is there a login attempt limit?
+- Is there a send-code / verify-code attempt limit?
 - Is abuse control present for repeated expensive endpoints?
+- Are unauthenticated endpoints cheap before DB, SMTP, RNG, or broad query work?
+```
+
+### 6. Persistence And Data Ownership
+
+```text
+- Does `PlayerSaveData` belong to the authenticated user only?
+- Are `PlayerWeaponState` and `PlayerStatUpgradeState` updates scoped through the owning save row?
+- Are EF Core uniqueness constraints aligned with service assumptions?
+- Are duplicate legacy rows handled without crashing privileged endpoints?
+- Does startup `EnsureCreated()`/seeding avoid writing secrets or destructive schema changes?
 ```
 
 ## Audit Output Format
