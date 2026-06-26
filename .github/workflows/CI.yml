@@ -20,6 +20,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Show files
+        run: |
+          pwd
+          ls -la
+          find . -name "*.csproj"
+          find . -name "*.sln"
+    
       - name: Checkout source code
         uses: actions/checkout@v4
 
