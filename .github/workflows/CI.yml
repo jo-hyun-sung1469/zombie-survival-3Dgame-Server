@@ -11,6 +11,8 @@ on:
       - main
       - develop
 
+  workflow_dispatch:
+
 env:
   DOTNET_VERSION: '9.0.x'
   PROJECT_PATH: /home/runner/work/zombie-survival-3Dgame-Server/zombie-survival-3Dgame-Server
@@ -21,6 +23,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Inspect files
+        run: |
+          pwd
+          find . -maxdepth 4 -name "*.csproj" -o -name "*.sln"
+          
       - name: Checkout source code
         uses: actions/checkout@v4
 
