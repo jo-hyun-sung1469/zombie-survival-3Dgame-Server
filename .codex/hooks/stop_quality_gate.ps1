@@ -6,9 +6,23 @@ function Get-LastBuildTimestamp {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
     try {
         $record = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-        [datetime]::Parse($record.timestampUtc).ToUniversalTime()
+        [datetime]::Parse(
+            $record.timestampUtc,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
     }
     catch { $null }
+}
+
+function Get-LatestChangeSummarySection {
+    $summaryPath = Join-Path (Get-RepoRoot) ".codex/change-summaries/CHANGE_SUMMARY.md"
+    if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { return $null }
+    try { $summary = Get-Content -LiteralPath $summaryPath -Raw }
+    catch { return $null }
+
+    $sections = $summary -split '(?m)^##\s+'
+    if ($sections.Count -lt 2) { return $null }
+    $sections[1]
 }
 
 function Test-ChangeSummaryRequired {
@@ -30,12 +44,10 @@ function Test-DecisionRecordRequired {
     $domains = @(Get-ZombieDomainNames $codePaths)
     if ($codePaths.Count -le 10 -and $domains.Count -le 3) { return $false }
 
-    $summaryPath = Join-Path (Get-RepoRoot) ".codex/change-summaries/CHANGE_SUMMARY.md"
-    if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { return $true }
-    try { $summary = Get-Content -LiteralPath $summaryPath -Raw }
-    catch { return $true }
+    $latestSection = Get-LatestChangeSummarySection
+    if ([string]::IsNullOrWhiteSpace($latestSection)) { return $true }
 
-    $summary -notmatch '남은 사용자 결정'
+    $latestSection -notmatch '남은 사용자 결정'
 }
 
 function Write-SessionSummary {

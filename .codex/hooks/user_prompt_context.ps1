@@ -4,17 +4,17 @@
 function Get-PromptText {
     param($Json, [string]$Raw)
 
+    if ($null -ne $Json) {
+        $values = @(Get-JsonValuesByName $Json @("prompt", "message", "input"))
+        if ($values.Count -gt 0) { return ($values -join "`n") }
+    }
+
     foreach ($key in @("prompt", "message", "input")) {
         $pattern = '"' + [regex]::Escape($key) + '"\s*:\s*"((?:\\.|[^"\\])*)"'
         $match = [regex]::Match($Raw, $pattern)
         if ($match.Success) {
             return [System.Text.RegularExpressions.Regex]::Unescape($match.Groups[1].Value)
         }
-    }
-
-    if ($null -ne $Json) {
-        $values = @(Get-JsonValuesByName $Json @("prompt", "message", "input"))
-        if ($values.Count -gt 0) { return ($values -join "`n") }
     }
 
     $Raw

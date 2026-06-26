@@ -2,6 +2,13 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-06-26 - PR #19 훅 리뷰 코멘트 반영
+
+- 목적: PR #19에 올라온 훅 리뷰 코멘트를 반영해 경로 파싱, 날짜 파싱, 변경 요약 검증, 비밀번호 감지, 프롬프트 추출 로직을 보강했습니다.
+- 변경 영역: `.codex/hooks/ZombieHookCommon.ps1`, `.codex/hooks/pre_tool_guard.ps1`, `.codex/hooks/stop_quality_gate.ps1`, `.codex/hooks/user_prompt_context.ps1`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 검증: PowerShell 훅 self-test, JSON/TOML 파싱, 종료 품질 게이트를 실행했습니다.
+- 남은 사용자 결정: GitHub 리뷰 스레드에 답변하거나 해결 표시할지는 사용자가 선택하면 됩니다.
+
 ## 2026-06-25 - 서브 에이전트 폴더 정리와 성능/범위 가드 추가
 
 - 목적: 루트에 흩어진 서브 에이전트 초안을 공식 `.codex/agents` 구조로 정리하고, 성능 리뷰 스킬과 과도한 단독 판단/광범위 코드 변경 제한 훅을 추가했습니다.

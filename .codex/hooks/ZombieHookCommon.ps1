@@ -100,6 +100,25 @@ function Test-PlaceholderValue {
     $false
 }
 
+function Get-PasswordAssignmentValues {
+    param([AllowEmptyString()][Parameter(Mandatory = $true)][string]$Text)
+    $values = New-Object System.Collections.Generic.List[string]
+    if ([string]::IsNullOrWhiteSpace($Text)) { return @() }
+
+    $pattern = '(?i)\bPassword\s*=\s*(?:"([^";\r\n}]*)"|''([^'';\r\n}]*)''|([^;`"''\s}]+))'
+
+    foreach ($match in [regex]::Matches($Text, $pattern)) {
+        foreach ($groupIndex in 1..3) {
+            if ($match.Groups[$groupIndex].Success) {
+                $values.Add($match.Groups[$groupIndex].Value)
+                break
+            }
+        }
+    }
+
+    $values.ToArray()
+}
+
 function Get-ChangedProjectFiles {
     $root = Get-RepoRoot
     $files = New-Object System.Collections.Generic.List[string]
@@ -116,6 +135,7 @@ function Get-ChangedProjectFiles {
         if ([string]::IsNullOrWhiteSpace($line) -or $line.Length -lt 4) { continue }
         $path = $line.Substring(3).Trim()
         if ($path -match ' -> ') { $path = ($path -split ' -> ')[-1].Trim() }
+        $path = $path.Trim('"')
         if ([string]::IsNullOrWhiteSpace($path)) { continue }
         $full = Join-Path $root $path
         if (Test-Path -LiteralPath $full -PathType Leaf) { $files.Add($full) }
@@ -246,8 +266,7 @@ function Invoke-ZombieStaticScan {
             $lineNumber = $i + 1
             $line = [string]$lines[$i]
 
-            if ($line -match '(?i)\bPassword\s*=\s*([^;`"''\s}]+)') {
-                $value = $Matches[1]
+            foreach ($value in @(Get-PasswordAssignmentValues $line)) {
                 if (-not (Test-PlaceholderValue $value)) {
                     Add-Finding $findings "Critical" "Security" $path $lineNumber "secret-connection-password" "Connection string password detected. Store it outside the repository."
                 }
