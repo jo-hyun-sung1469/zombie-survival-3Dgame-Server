@@ -2,7 +2,7 @@
 . "$PSScriptRoot/ZombieHookCommon.ps1"
 
 function Write-ActivityLog {
-    param([Parameter(Mandatory = $true)][string]$Raw, $Json)
+    param([AllowEmptyString()][string]$Raw, $Json)
     $stateDir = Get-HookStateDirectory
     $logPath = Join-Path $stateDir "activity.jsonl"
     $commands = @()
@@ -13,8 +13,10 @@ function Write-ActivityLog {
         $tools += Get-JsonValuesByName $Json @("tool_name", "tool", "name")
         $exitValues += Get-JsonValuesByName $Json @("exit_code", "exitCode", "status")
     }
-    $command = [string]($commands | Select-Object -First 1)
-    $tool = [string]($tools | Select-Object -First 1)
+    $firstCommand = $commands | Select-Object -First 1
+    $firstTool = $tools | Select-Object -First 1
+    $command = if ($null -eq $firstCommand) { "" } else { [string]$firstCommand }
+    $tool = if ($null -eq $firstTool) { "" } else { [string]$firstTool }
     if ([string]::IsNullOrWhiteSpace($tool)) { $tool = "unknown" }
     $parsedExit = $null
     $exitRaw = ($exitValues | Select-Object -First 1)

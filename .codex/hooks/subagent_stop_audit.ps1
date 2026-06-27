@@ -2,7 +2,7 @@ param([switch]$SelfTest)
 . "$PSScriptRoot/ZombieHookCommon.ps1"
 
 function Invoke-SubagentStopAudit {
-    param([Parameter(Mandatory = $true)][string]$Raw)
+    param([AllowEmptyString()][string]$Raw)
     if ([string]::IsNullOrWhiteSpace($Raw)) { return }
 
     $missing = New-Object System.Collections.Generic.List[string]

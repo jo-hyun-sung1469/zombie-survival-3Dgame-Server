@@ -2,7 +2,7 @@
 . "$PSScriptRoot/ZombieHookCommon.ps1"
 
 function Invoke-PreToolGuard {
-    param([Parameter(Mandatory = $true)][string]$Raw, $Json)
+    param([AllowEmptyString()][string]$Raw, $Json)
 
     $commands = @()
     if ($null -ne $Json) {

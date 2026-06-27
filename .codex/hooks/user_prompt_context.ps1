@@ -2,7 +2,7 @@
 . "$PSScriptRoot/ZombieHookCommon.ps1"
 
 function Get-PromptText {
-    param($Json, [string]$Raw)
+    param($Json, [AllowEmptyString()][string]$Raw)
 
     if ($null -ne $Json) {
         $values = @(Get-JsonValuesByName $Json @("prompt", "message", "input"))
@@ -21,7 +21,7 @@ function Get-PromptText {
 }
 
 function New-ContextForPrompt {
-    param([Parameter(Mandatory = $true)][string]$Prompt)
+    param([AllowEmptyString()][string]$Prompt)
     if ([string]::IsNullOrWhiteSpace($Prompt)) { return "" }
     $lower = $Prompt.ToLowerInvariant()
     $snippets = New-Object System.Collections.Generic.List[string]

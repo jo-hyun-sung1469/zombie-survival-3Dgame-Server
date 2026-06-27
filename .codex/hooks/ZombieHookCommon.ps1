@@ -101,7 +101,7 @@ function Test-PlaceholderValue {
 }
 
 function Get-PasswordAssignmentValues {
-    param([AllowEmptyString()][Parameter(Mandatory = $true)][string]$Text)
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
     $values = New-Object System.Collections.Generic.List[string]
     if ([string]::IsNullOrWhiteSpace($Text)) { return @() }
 
@@ -145,7 +145,7 @@ function Get-ChangedProjectFiles {
 }
 
 function Get-ReferencedRepoPaths {
-    param([Parameter(Mandatory = $true)][string]$Raw)
+    param([AllowEmptyString()][string]$Raw)
     $paths = New-Object System.Collections.Generic.List[string]
 
     foreach ($match in [regex]::Matches($Raw, '(?m)^\s*(?:\+\+\+|---)\s+(?:a/|b/)?([^\r\n]+)$')) {
