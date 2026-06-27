@@ -65,6 +65,28 @@ Description rules:
 7. Commit with `git commit -m "type(scope): description"` using a Korean description.
 8. Verify recent history with `git log --oneline -n <count>`.
 
+## Fine-Grained Feature Commit Splitting
+
+Prefer small, reviewable feature commits over one broad feature commit. When a feature spans multiple layers, split by independently understandable implementation step whenever the diffs can still build or be reviewed coherently.
+
+Default feature split order:
+
+1. DTO/contracts: request/response records and API contract shapes.
+2. Models/entities: domain models, EF entities, enums, and value objects.
+3. Persistence mapping: `GameDbContext`, relationships, indexes, seed/catalog configuration, and storage helpers.
+4. Options/configuration: options classes, `appsettings` examples, and DI/startup registration.
+5. Service logic: business rules, validation, calculations, and database coordination.
+6. Controller/endpoints: routes, authorization attributes, status codes, model binding, and HTTP response mapping.
+7. Verification/docs: `.http` smoke cases, tests when present, docs, and change summaries.
+
+Rules:
+
+- Do not combine DTO creation, entity creation, service implementation, and controller wiring into one commit when they can be reviewed separately.
+- Keep commits buildable when practical. If an intermediate layer cannot compile alone, group only the minimum adjacent layer needed to preserve buildability and mention that reason.
+- Use pathspecs or patch staging to stage only the files or hunks for the current layer.
+- For large features, present the planned commit stack before committing so the developer can catch wrong boundaries.
+- If a previous broad commit needs cleanup, prefer follow-up commits that restore clear feature boundaries; do not rewrite published history unless the developer explicitly asks.
+
 ## User Choice Points
 
 When a commit decision materially affects the result, present exactly three options and mark one as `(Recommended)`.

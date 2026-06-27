@@ -5,3 +5,4 @@
 **/game-data.db/
 **/appsettings.Development.json
 **/player-defaults.local.json
+.codex-hook-state/

@@ -1,0 +1,85 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName user_prompt_context.ps1",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName user_prompt_context.ps1",
+            "timeout": 10,
+            "statusMessage": "Loading Zombie Survival context"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|functions\\.shell_command|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName pre_tool_guard.ps1",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName pre_tool_guard.ps1",
+            "timeout": 10,
+            "statusMessage": "Checking command and secret safety"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash|functions\\.shell_command|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName pre_tool_guard.ps1",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName pre_tool_guard.ps1",
+            "timeout": 10,
+            "statusMessage": "Reviewing permission request"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|functions\\.shell_command|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName post_tool_audit.ps1",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName post_tool_audit.ps1",
+            "timeout": 20,
+            "statusMessage": "Auditing Zombie Survival changes"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName subagent_stop_audit.ps1",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName subagent_stop_audit.ps1",
+            "timeout": 10,
+            "statusMessage": "Checking subagent handoff quality"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName stop_quality_gate.ps1",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/user/RiderProjects/zombie_servival-3Dgame_Server/.codex/hooks/run_hook.ps1\" -ScriptName stop_quality_gate.ps1",
+            "timeout": 30,
+            "statusMessage": "Running Zombie Survival quality gate"
+          }
+        ]
+      }
+    ]
+  }
+}
