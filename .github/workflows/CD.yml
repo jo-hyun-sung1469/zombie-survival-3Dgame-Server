@@ -4,14 +4,13 @@ on:
   push:
     branches:
       - main
-      - develop
 
-  pull_request:
-    branches:
-      - main
-      - develop
-
-  workflow_dispatch:
+env:
+  DOCKER_CONTEXT: .
+  DOCKERFILE_PATH: ./Dockerfile
+  CONTAINER_NAME: game-server
+  HOST_PORT: 5000
+  CONTAINER_PORT: 8080
 
 jobs:
   deploy:
@@ -26,6 +25,25 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Verify build files
+        run: |
+          echo "Current branch: ${GITHUB_REF_NAME}"
+          echo "Current directory: $(pwd)"
+          echo "Docker context: ${DOCKER_CONTEXT}"
+          echo "Dockerfile path: ${DOCKERFILE_PATH}"
+
+          if [ ! -f "${DOCKERFILE_PATH}" ]; then
+            echo "::error::Dockerfile not found at ${DOCKERFILE_PATH}. Make sure main contains the Dockerfile or update DOCKERFILE_PATH."
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+          if ! find "${DOCKER_CONTEXT}" -type f \( -name "*.csproj" -o -name "*.sln" \) | grep -q .; then
+            echo "::error::No .csproj or .sln file found under ${DOCKER_CONTEXT}. Make sure main contains the server project."
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
       - name: Set lowercase image name
         id: image
         run: |
@@ -34,7 +52,7 @@ jobs:
           echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4.2.0
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -42,31 +60,37 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $IMAGE_NAME:latest .
+          docker build \
+            -t "$IMAGE_NAME:latest" \
+            -f "$DOCKERFILE_PATH" \
+            "$DOCKER_CONTEXT"
 
       - name: Push Docker image
         run: |
-          docker push $IMAGE_NAME:latest
+          docker push "$IMAGE_NAME:latest"
 
       - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            set -e
 
-            docker pull ${{ env.IMAGE_NAME }}:latest
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
 
-            docker stop game-server || true
-            docker rm game-server || true
+            docker pull ${{ steps.image.outputs.image_name }}:latest
+
+            docker stop ${{ env.CONTAINER_NAME }} || true
+            docker rm ${{ env.CONTAINER_NAME }} || true
 
             docker run -d \
-              --name game-server \
-              -p 5000:8080 \
+              --name ${{ env.CONTAINER_NAME }} \
+              -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               --restart always \
               -e ASPNETCORE_ENVIRONMENT=Production \
-              ${{ env.IMAGE_NAME }}:latest
+              -e ASPNETCORE_URLS=http://+:${{ env.CONTAINER_PORT }} \
+              ${{ steps.image.outputs.image_name }}:latest
 
             docker image prune -f
