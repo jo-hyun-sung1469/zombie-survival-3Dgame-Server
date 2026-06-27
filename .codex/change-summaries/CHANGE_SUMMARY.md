@@ -2,6 +2,20 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-06-27 - 기능 단위 커밋 세분화 규칙 강화
+
+- 목적: 기능 개발 변경사항을 한 번에 묶지 않고 DTO, 모델/엔티티, 영속성, 설정, 서비스 로직, 컨트롤러, 검증/문서 단위로 세분화해 커밋하도록 커밋 스킬과 git 전담 에이전트 지침을 강화했습니다.
+- 변경 영역: `.codex/skills/commit/SKILL.md`, `.codex/agents/git-manager.toml`, `.codex/agents/_catalog/workflow/git-manager.md`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 검증: `rg`로 세분화 기준 반영을 확인했고, 훅 종료 품질 게이트를 실행했습니다.
+- 남은 사용자 결정: 없음.
+
+## 2026-06-26 - 훅 실행 wrapper 추가
+
+- 목적: `.codex/hooks.json`의 인라인 PowerShell 변수 확장 및 실행 cwd 의존 문제로 훅이 실행 전에 실패하던 문제를 방지하기 위해 공통 실행 wrapper와 절대 경로 호출을 추가했습니다.
+- 변경 영역: `.codex/hooks.json`, `.codex/hooks/run_hook.ps1`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 검증: wrapper 경유 훅 실행, repo 밖 cwd 실행, 빈 payload no-op 처리, `hooks.json` 파싱, 기존 훅 self-test를 확인했습니다.
+- 남은 사용자 결정: 없음.
+
 ## 2026-06-26 - PR #19 훅 리뷰 코멘트 반영
 
 - 목적: PR #19에 올라온 훅 리뷰 코멘트를 반영해 경로 파싱, 날짜 파싱, 변경 요약 검증, 비밀번호 감지, 프롬프트 추출 로직을 보강했습니다.
