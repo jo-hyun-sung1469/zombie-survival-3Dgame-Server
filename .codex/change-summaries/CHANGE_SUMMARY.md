@@ -2,6 +2,13 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-06-30 - PostToolUse 훅 실패 방어
+
+- 목적: 도구 실행 후 감사/로그용 훅에서 예외가 발생해도 작업이 실패 처리되지 않도록 `PostToolUse` 훅을 비차단 방식으로 보강했습니다.
+- 변경 영역: `.codex/hooks/post_tool_audit.ps1`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 검증: PostToolUse 훅 self-test, 일반 payload, Windows 경로 payload, 병렬 실행 payload, 종료 품질 게이트를 실행했습니다.
+- 남은 사용자 결정: 없음.
+
 ## 2026-06-27 - 기능 단위 커밋 세분화 규칙 강화
 
 - 목적: 기능 개발 변경사항을 한 번에 묶지 않고 DTO, 모델/엔티티, 영속성, 설정, 서비스 로직, 컨트롤러, 검증/문서 단위로 세분화해 커밋하도록 커밋 스킬과 git 전담 에이전트 지침을 강화했습니다.
