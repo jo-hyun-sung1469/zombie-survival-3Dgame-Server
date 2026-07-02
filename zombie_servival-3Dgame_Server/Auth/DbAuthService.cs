@@ -68,9 +68,10 @@ public sealed class DbAuthService(
     {
         var now = DateTime.UtcNow;
         var verificationId = (request.EmailVerificationId ?? string.Empty).Trim();
-        var verificationCode = await dbContext.AuthVerificationCodes
-            .SingleOrDefaultAsync(x => x.Id == verificationId, cancellationToken);
-
+        var verificationCode = await dbContext.AuthVerificationCodes//여기서 요청으로 들어온 ID값을 검사하여 이메일 인증 요청을
+            .SingleOrDefaultAsync(x => x.Id == verificationId, cancellationToken);// 기록한 객체를 가져옴
+        //사용된 객체의 구조는 GameDBContext에서 확인 가능
+        
         if (verificationCode is null || verificationCode.ConsumedAtUtc is not null)
         {
             return new RegisterEmailVerificationResult { Status = RegisterEmailVerificationStatus.InvalidCode };
@@ -153,9 +154,10 @@ public sealed class DbAuthService(
 
         var now = DateTime.UtcNow;
         var verificationId = (request.EmailVerificationId ?? string.Empty).Trim();
-        var verificationCode = await dbContext.AuthVerificationCodes
-            .SingleOrDefaultAsync(x => x.Id == verificationId, cancellationToken);
-
+        var verificationCode = await dbContext.AuthVerificationCodes//여기서 요청으로 들어온 ID값을 검사해 이메일 인증된 객체중에
+            .SingleOrDefaultAsync(x => x.Id == verificationId, cancellationToken);//ID값이 같은 객체를 가져옴
+        //사용된 객체의 구조는 GameDBContext에서 확인 가능
+        
         if (verificationCode is null || verificationCode.VerifiedAtUtc is null)
         {
             return new RegisterResult { Status = RegisterStatus.EmailVerificationInvalid };
