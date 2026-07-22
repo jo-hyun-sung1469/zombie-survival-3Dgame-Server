@@ -1,7 +1,10 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using MySqlConnector;
 using zombie_survival_3Dgame_Server.Auth;
 using zombie_survival_3Dgame_Server.Data;
 using zombie_survival_3Dgame_Server.Firearm;
@@ -53,11 +56,39 @@ builder.Services.AddControllers();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("ConnectionStrings__DefaultConnection environment variable is missing.");
+    var databaseHost = builder.Configuration["Database:Host"];
+    var databaseName = builder.Configuration["Database:Name"];
+    var databaseUser = builder.Configuration["Database:User"];
+    var databaseCredential = builder.Configuration["Database:Credential"];
+
+    if (string.IsNullOrWhiteSpace(databaseHost)
+        || string.IsNullOrWhiteSpace(databaseName)
+        || string.IsNullOrWhiteSpace(databaseUser)
+        || string.IsNullOrWhiteSpace(databaseCredential))
+    {
+        throw new InvalidOperationException("The Database connection settings are incomplete.");
+    }
+
+    var databaseConnection = new MySqlConnectionStringBuilder
+    {
+        Server = databaseHost,
+        Port = builder.Configuration.GetValue<uint?>("Database:Port") ?? 3306,
+        Database = databaseName,
+        UserID = databaseUser,
+        CharacterSet = "utf8mb4",
+        SslMode = MySqlSslMode.Preferred
+    };
+    databaseConnection["Pwd"] = databaseCredential;
+    connectionString = databaseConnection.ConnectionString;
 }
 
 builder.Services.AddDbContext<GameDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseMySql(connectionString, GameDbContextFactory.MySqlServerVersion));
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<GameDbContext>(
+        "mysql",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready"]);
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IAuthService, DbAuthService>();
@@ -77,7 +108,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<GameDbContext>();
-    dbContext.Database.EnsureCreated();
+    await dbContext.Database.MigrateAsync();
     await FirearmCatalogSeeder.UpsertAsync(dbContext, DefaultFirearmCatalog.Items);
 }
 
@@ -87,11 +118,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready")
+}).AllowAnonymous();
 app.MapControllers();
 
 app.Run();
