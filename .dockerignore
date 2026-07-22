@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.vs
+.agents
+.codex
+.codex-hook-state
+**/bin
+**/obj
+**/*.user
+**/appsettings.Development.json
+**/player-defaults.local.json
+app.env
+deployment.env
+deployment/backups
