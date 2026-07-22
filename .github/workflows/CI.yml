@@ -2,32 +2,21 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - develop
-
+    branches: [main, develop]
   pull_request:
-    branches:
-      - main
-      - develop
-
+    branches: [main, develop]
   workflow_dispatch:
 
 env:
-  DOTNET_VERSION: '9.0.x'
-  PROJECT_PATH: /home/runner/work/zombie-survival-3Dgame-Server/zombie-survival-3Dgame-Server
+  DOTNET_VERSION: 10.0.x
+  SOLUTION_PATH: zombie_survival-3Dgame_Server.sln
 
 jobs:
   build-and-test:
-    name: Build and Test
+    name: Build, test, and validate containers
     runs-on: ubuntu-latest
 
     steps:
-      - name: Inspect files
-        run: |
-          pwd
-          find . -maxdepth 4 -name "*.csproj" -o -name "*.sln"
-          
       - name: Checkout source code
         uses: actions/checkout@v4
 
@@ -37,10 +26,27 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore ${{ env.PROJECT_PATH }}
+        run: dotnet restore "${SOLUTION_PATH}"
 
       - name: Build project
-        run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+        run: dotnet build "${SOLUTION_PATH}" --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test ${{ env.PROJECT_PATH }} --configuration Release --no-build
+        run: dotnet test "${SOLUTION_PATH}" --configuration Release --no-build
+
+      - name: Validate Docker Compose
+        run: |
+          export MYSQL_PASSWORD="$(openssl rand -hex 24)"
+          export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
+          export JWT_SECRET_KEY="$(openssl rand -hex 32)"
+          export SMTP_PASSWORD="$(openssl rand -hex 24)"
+          export SMTP_HOST="smtp.example.invalid"
+          export SMTP_USERNAME="compose-check"
+          export SMTP_FROM_ADDRESS="compose-check@example.invalid"
+          docker compose --env-file app.env.example config --quiet
+
+      - name: Build linux/amd64 app image
+        run: docker build --platform linux/amd64 --tag zombie-survival-server:ci .
+
+      - name: Build linux/amd64 backup image
+        run: docker build --platform linux/amd64 --tag zombie-survival-mysql-backup:ci deployment/backup

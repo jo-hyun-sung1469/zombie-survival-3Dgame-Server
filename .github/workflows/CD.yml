@@ -2,95 +2,104 @@ name: CD
 
 on:
   push:
-    branches:
-      - main
-
-env:
-  DOCKER_CONTEXT: .
-  DOCKERFILE_PATH: ./Dockerfile
-  CONTAINER_NAME: game-server
-  HOST_PORT: 5000
-  CONTAINER_PORT: 8080
+    branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy to EC2
+  publish:
+    name: Publish container images
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
+    outputs:
+      app_image: ${{ steps.images.outputs.app_image }}
+      backup_image: ${{ steps.images.outputs.backup_image }}
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Verify build files
+      - name: Resolve image names and tags
+        id: images
+        shell: bash
         run: |
-          echo "Current branch: ${GITHUB_REF_NAME}"
-          echo "Current directory: $(pwd)"
-          echo "Docker context: ${DOCKER_CONTEXT}"
-          echo "Dockerfile path: ${DOCKERFILE_PATH}"
-
-          if [ ! -f "${DOCKERFILE_PATH}" ]; then
-            echo "::error::Dockerfile not found at ${DOCKERFILE_PATH}. Make sure main contains the Dockerfile or update DOCKERFILE_PATH."
-            find . -maxdepth 4 -type f | sort
-            exit 1
+          image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
+          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            channel_tag="latest"
+          else
+            channel_tag="develop"
           fi
 
-          if ! find "${DOCKER_CONTEXT}" -type f \( -name "*.csproj" -o -name "*.sln" \) | grep -q .; then
-            echo "::error::No .csproj or .sln file found under ${DOCKER_CONTEXT}. Make sure main contains the server project."
-            find . -maxdepth 4 -type f | sort
-            exit 1
-          fi
+          echo "app_image=${image_root}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backup_image=${image_root}-mysql-backup:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "app_tags=${image_root}:${GITHUB_SHA},${image_root}:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "backup_tags=${image_root}-mysql-backup:${GITHUB_SHA},${image_root}-mysql-backup:${channel_tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Set lowercase image name
-        id: image
-        run: |
-          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
-          echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
-        run: |
-          docker build \
-            -t "$IMAGE_NAME:latest" \
-            -f "$DOCKERFILE_PATH" \
-            "$DOCKER_CONTEXT"
+      - name: Build and push app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.images.outputs.app_tags }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
 
-      - name: Push Docker image
-        run: |
-          docker push "$IMAGE_NAME:latest"
+      - name: Build and push backup image
+        uses: docker/build-push-action@v6
+        with:
+          context: deployment/backup
+          file: deployment/backup/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.images.outputs.backup_tags }}
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup
 
-      - name: Deploy on EC2
+  deploy:
+    name: Deploy to Linux host
+    needs: publish
+    if: vars.SSH_DEPLOY_ENABLED == 'true' && (github.ref_name == 'main' || vars.DEVELOP_DEPLOY_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    env:
+      DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
+      DEPLOY_BACKUP_IMAGE: ${{ needs.publish.outputs.backup_image }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Upload deployment files
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: compose.yaml,deployment
+          target: ~/zombie-survival-server
+
+      - name: Deploy app with health rollback
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DEPLOY_APP_IMAGE,DEPLOY_BACKUP_IMAGE,GHCR_USERNAME,GHCR_PAT
           script: |
-            set -e
-
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-
-            docker pull ${{ steps.image.outputs.image_name }}:latest
-
-            docker stop ${{ env.CONTAINER_NAME }} || true
-            docker rm ${{ env.CONTAINER_NAME }} || true
-
-            docker run -d \
-              --name ${{ env.CONTAINER_NAME }} \
-              -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
-              --restart always \
-              -e ASPNETCORE_ENVIRONMENT=Production \
-              -e ASPNETCORE_URLS=http://+:${{ env.CONTAINER_PORT }} \
-              ${{ steps.image.outputs.image_name }}:latest
-
-            docker image prune -f
+            cd ~/zombie-survival-server
+            bash deployment/scripts/deploy.sh
