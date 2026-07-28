@@ -63,6 +63,9 @@ if ! wait_for_health game-mysql 120; then
   exit 1
 fi
 
+echo "EF Migration 적용 가능 여부를 확인합니다."
+bash deployment/scripts/check-migration-readiness.sh
+
 if [[ "$backup_enabled" == "true" ]]; then
   if docker container inspect game-mysql-backup >/dev/null 2>&1; then
     docker start game-mysql-backup >/dev/null
