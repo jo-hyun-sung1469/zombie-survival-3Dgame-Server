@@ -181,3 +181,16 @@
 - 검증: 전체 PowerShell 구문 검사와 훅 자체 테스트를 통과했고, `PermissionRequest`, `PostToolUse`, `SubagentStop`, `Stop` 실제 형태 payload에서 종료 코드 0과 유효한 JSON 출력을 확인했습니다. 병렬 16개 `PostToolUse` 실행은 모두 성공했고, 장기 파일 잠금 상황에서도 종료 코드 0과 `systemMessage`·`additionalContext`가 반환됐습니다.
 - 남은 사용자 결정: 없음.
 
+## 2026-07-26 - 배포 PR Migration·TLS·CI/CD 안전장치 보강
+
+- 목적: 기존 `EnsureCreated()` DB의 Migration 충돌로 인한 배포 중단, 평문 HTTP 직접 노출, CI 실패 커밋 배포와 가변 GitHub Action 태그 사용을 방지했습니다.
+- 변경 영역: `.github/workflows/CI.yml`, `.github/workflows/CD.yml`, `compose.yaml`, `app.env.example`, `deployment/README.md`, `deployment/migrations`, `deployment/scripts`.
+- 반영 내용:
+  - 기존 테이블은 있지만 최초 Migration 이력이 없는 DB를 앱 교체 전에 감지해 배포를 중단하도록 했습니다.
+  - 기존 DB의 테이블·컬럼·인덱스·외래키를 검증하고 전체 dump를 만든 뒤 최초 Migration baseline을 등록하는 명시적 명령을 추가했습니다.
+  - 앱 포트를 호스트 loopback에만 바인딩하고 운영 환경 기본값을 `Production`으로 변경했으며, 외부 공개 시 TLS 역방향 프록시를 필수로 문서화했습니다.
+  - CI를 통과한 `main`·`develop` push만 CD 재사용 워크플로를 호출하도록 연결했습니다.
+  - CI/CD에서 사용하는 외부 GitHub Actions를 검증된 release commit SHA로 고정했습니다.
+- 검증: .NET 10 Release 빌드가 경고·오류 없이 통과했고, Docker Compose 렌더링, 전체 Bash 구문 검사, 외부 Action 전체 40자리 SHA 고정 여부와 CD 직접 push 트리거 제거를 확인했습니다. 임시 MySQL 기반 Migration 차단·불일치 거부·baseline 성공 통합 테스트는 CI에 추가했으며 로컬 Docker 데몬이 실행 중이지 않아 현재 PC에서는 실행하지 못했습니다.
+- 남은 사용자 결정: 기존 DB가 있다면 외부 백업 확보 후 baseline 명령을 실제 운영 환경에서 실행해야 합니다. 외부 API 공개 전 TLS 역방향 프록시와 인증서를 준비해야 합니다.
+

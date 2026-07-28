@@ -24,13 +24,15 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 - 임시 백업: `zombie_survival_mysql_backup_tmp` named volume, 생성 후 2일이 지난 dump 삭제
 
 앱은 시작할 때 미적용 EF Migration을 실행하고 총기 카탈로그를 upsert합니다. `/health`는 인증 없이 MySQL 연결을 검사하며 정상일 때 200, 장애일 때 503을 반환합니다.
+앱 포트는 호스트의 `127.0.0.1`에만 바인딩됩니다. 인터넷에 공개할 때는 Nginx, Caddy 또는 로드 밸런서에서 TLS를 종료하고 `http://127.0.0.1:5000`으로 프록시해야 합니다. TLS 없이 앱 포트를 외부 인터페이스에 직접 공개하면 안 됩니다.
 
 ## 사전 준비
 
 1. 배포할 Linux PC에 Docker Engine과 Docker Compose v2를 설치합니다.
 2. `~/zombie-survival-server` 디렉터리를 만듭니다.
-3. `app.env.example`을 참고해 Linux 서버에 `~/zombie-survival-server/app.env`를 만들고 `chmod 600 app.env`를 적용합니다.
+3. `app.env.example`을 참고해 Linux 서버에 `~/zombie-survival-server/app.env`를 만들고 `chmod 600 app.env`를 적용합니다. `ASPNETCORE_ENVIRONMENT=Production`을 유지합니다.
 4. GitHub Actions에서 접근할 수 있도록 Linux 서버의 SSH 접속 주소와 키를 준비합니다.
+5. 외부 API 접속이 필요하면 TLS 인증서가 적용된 역방향 프록시를 구성합니다. 프록시만 443 포트를 공개하고 앱의 5000 포트는 공개하지 않습니다.
 
 S3 백업은 선택 사항입니다. 사용할 경우에만 비공개 S3 버킷, 기본 암호화, 30일 Lifecycle, 쓰기 권한을 준비하고 `BACKUP_ENABLED=true`로 설정합니다. 사용하지 않으면 `BACKUP_ENABLED=false`를 유지합니다.
 
@@ -38,7 +40,7 @@ MySQL 공식 이미지가 최초 초기화 시 `MYSQL_USER` 계정을 만들고 
 
 ## GitHub 설정
 
-`production` Environment에 다음 Secret을 등록합니다.
+`production` Environment에 다음 Secret을 등록합니다. `develop` 배포도 사용할 경우 `development` Environment에도 별도의 개발 서버용 값을 등록합니다.
 
 - `SSH_HOST`
 - `SSH_USER`
@@ -46,15 +48,16 @@ MySQL 공식 이미지가 최초 초기화 시 `MYSQL_USER` 계정을 만들고 
 - `GHCR_USERNAME`
 - `GHCR_PAT`
 
-`main` push는 SHA와 `latest`, `develop` push는 SHA와 `develop` 태그를 발행합니다. Linux 서버가 준비되기 전에는 이미지 발행만 수행합니다. 서버가 준비된 후 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정하면 SSH 배포가 활성화됩니다. `develop`도 배포하려면 `DEVELOP_DEPLOY_ENABLED=true`를 추가합니다.
+CI의 빌드, 테스트, Compose 검증, 이미지 빌드를 모두 통과한 push만 CD 재사용 워크플로를 호출합니다. `main` push는 SHA와 `latest`, `develop` push는 SHA와 `develop` 태그를 발행합니다. Linux 서버가 준비되기 전에는 이미지 발행만 수행합니다. 서버가 준비된 후 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정하면 SSH 배포가 활성화됩니다. `develop`도 배포하려면 `DEVELOP_DEPLOY_ENABLED=true`를 추가합니다.
 
 CD는 다음 순서로 동작합니다.
 
 1. 새 앱 이미지를 pull합니다.
 2. `BACKUP_ENABLED=true`인 경우에만 백업 이미지를 pull하고 S3 쓰기 및 삭제 권한을 검사합니다.
 3. 기존 MySQL 컨테이너와 named volume을 그대로 유지합니다.
-4. 앱 컨테이너만 SHA 이미지로 교체하고 최대 90초 동안 healthy 상태를 기다립니다.
-5. 실패하면 직전 앱 이미지로 복구하고 워크플로를 실패 처리합니다.
+4. 기존 테이블이 있으면서 최초 EF Migration 이력이 없는 DB인지 검사하고, 해당하면 기존 앱을 유지한 채 배포를 중단합니다.
+5. 앱 컨테이너만 SHA 이미지로 교체하고 최대 90초 동안 healthy 상태를 기다립니다.
+6. 실패하면 직전 앱 이미지로 복구하고 워크플로를 실패 처리합니다.
 
 백업 컨테이너는 `BACKUP_ENABLED=true`일 때만 생성되며 일반 앱 배포에서는 재생성하지 않습니다. 백업 이미지 자체를 갱신해야 할 때는 별도 유지보수 창에서 S3 쓰기 검사 후 백업 컨테이너만 교체합니다.
 
@@ -72,6 +75,22 @@ CD와 운영 절차에서 `docker compose down -v`를 실행하지 마세요. �
 최초 Migration은 빈 MySQL 8.4 DB를 기준으로 생성되었습니다. 이전 버전의 `EnsureCreated()`로 이미 만들어진 DB에는 `__EFMigrationsHistory`가 없으므로 그대로 배포하면 최초 Migration의 테이블 생성과 충돌합니다.
 
 기존 운영 DB가 있다면 배포 전에 전체 dump를 만들고, 실제 스키마가 최초 Migration과 동일한지 검토한 다음 별도의 baseline 절차를 승인해야 합니다. 검증 없이 migration 이력만 수동 삽입하지 마세요. 이후 migration은 컬럼·테이블 추가를 먼저 배포하고 구버전 앱이 더 이상 필요하지 않을 때 제거하는 확장 우선 방식으로 작성합니다.
+
+배포 스크립트는 기존 테이블이 있는데 `20260720014315_InitialCreate` 이력이 없으면 새 앱을 교체하기 전에 실패합니다. 다음 명령으로 같은 검사를 직접 실행할 수 있습니다.
+
+```bash
+cd ~/zombie-survival-server
+bash deployment/scripts/check-migration-readiness.sh
+```
+
+기존 DB를 보존하면서 baseline을 등록해야 할 때는 먼저 별도 외부 백업을 확보한 다음 아래 명령을 실행합니다.
+
+```bash
+cd ~/zombie-survival-server
+bash deployment/scripts/baseline-existing-database.sh --confirm-initial-baseline
+```
+
+이 명령은 현재 스키마의 테이블, 컬럼 형식과 null 허용 여부, 인덱스, 외래키가 최초 Migration과 일치하는지 검사합니다. 하나라도 다르면 DB를 변경하지 않고 종료합니다. 검증을 통과하면 `deployment/backups/`에 전체 dump를 생성한 후에만 `__EFMigrationsHistory`에 최초 Migration을 등록합니다. 생성된 dump가 안전하게 보관되었는지 확인한 다음 배포를 다시 실행하세요.
 
 ## 백업 및 복원 검증
 

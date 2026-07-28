@@ -1,9 +1,16 @@
 name: CD
 
 on:
-  push:
-    branches: [main, develop]
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: CI 검증을 통과한 commit SHA
+        required: true
+        type: string
+      source_branch:
+        description: CI 검증을 통과한 브랜치
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -15,39 +22,48 @@ jobs:
     outputs:
       app_image: ${{ steps.images.outputs.app_image }}
       backup_image: ${{ steps.images.outputs.backup_image }}
+      source_sha: ${{ steps.images.outputs.source_sha }}
+      source_branch: ${{ steps.images.outputs.source_branch }}
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.source_sha }}
 
       - name: Resolve image names and tags
         id: images
         shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
         run: |
           image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
-          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+          if [[ "$SOURCE_BRANCH" == "main" ]]; then
             channel_tag="latest"
           else
             channel_tag="develop"
           fi
 
-          echo "app_image=${image_root}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "backup_image=${image_root}-mysql-backup:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "app_tags=${image_root}:${GITHUB_SHA},${image_root}:${channel_tag}" >> "$GITHUB_OUTPUT"
-          echo "backup_tags=${image_root}-mysql-backup:${GITHUB_SHA},${image_root}-mysql-backup:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "app_image=${image_root}:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backup_image=${image_root}-mysql-backup:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "app_tags=${image_root}:${SOURCE_SHA},${image_root}:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "backup_tags=${image_root}-mysql-backup:${SOURCE_SHA},${image_root}-mysql-backup:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "source_branch=${SOURCE_BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push app image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: Dockerfile
@@ -58,7 +74,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=app
 
       - name: Build and push backup image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: deployment/backup
           file: deployment/backup/Dockerfile
@@ -71,9 +87,9 @@ jobs:
   deploy:
     name: Deploy to Linux host
     needs: publish
-    if: vars.SSH_DEPLOY_ENABLED == 'true' && (github.ref_name == 'main' || vars.DEVELOP_DEPLOY_ENABLED == 'true')
+    if: vars.SSH_DEPLOY_ENABLED == 'true' && (needs.publish.outputs.source_branch == 'main' || vars.DEVELOP_DEPLOY_ENABLED == 'true')
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    environment: ${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
     env:
       DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
       DEPLOY_BACKUP_IMAGE: ${{ needs.publish.outputs.backup_image }}
@@ -82,10 +98,12 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.publish.outputs.source_sha }}
 
       - name: Upload deployment files
-        uses: appleboy/scp-action@v1
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -94,7 +112,7 @@ jobs:
           target: ~/zombie-survival-server
 
       - name: Deploy app with health rollback
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
