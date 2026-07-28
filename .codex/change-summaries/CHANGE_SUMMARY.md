@@ -202,3 +202,15 @@
 - 검증: PowerShell 구문 검사와 `stop_quality_gate.ps1 -SelfTest`로 정상 동작을 확인했습니다.
 - 남은 사용자 결정: 없음.
 
+## 2026-07-28 - release 브랜치 CI/CD 통합
+
+- 목적: `develop`의 배포 검증 구조를 유지하면서 `release` 대상 PR과 푸시에서도 CI를 실행하고, 검증을 통과한 `release` 푸시를 개발환경에 배포할 수 있도록 했습니다.
+- 변경 영역: `.github/workflows/CI.yml`, `.github/workflows/CD.yml`.
+- 반영 내용:
+  - `release` 대상 PR과 `release` 푸시에 빌드, 테스트, Docker Compose, 배포 스크립트, Migration baseline 및 컨테이너 빌드 검증이 실행되도록 했습니다.
+  - PR에서는 검증만 수행하고, 푸시에서만 재사용 CD 워크플로를 호출하는 기존 안전장치를 유지했습니다.
+  - `release` 푸시 이미지는 commit SHA 태그와 `release` 채널 태그로 게시하도록 분리했습니다.
+  - 원격 배포는 `SSH_DEPLOY_ENABLED=true`와 `DEVELOP_DEPLOY_ENABLED=true`일 때 개발환경으로만 실행하도록 제한했습니다.
+- 검증: 워크플로 충돌 표시가 없고 `git diff --check`가 통과하는지 확인했으며, release 트리거·검증 단계·push 전용 CD 호출·release 이미지 태그·개발환경 배포 게이트를 정적 점검했습니다. .NET 10 Release 빌드는 경고와 오류 없이 통과했습니다.
+- 남은 사용자 결정: 변경사항을 커밋하고 `develop`에 push하여 PR #24의 충돌 해소를 GitHub에 반영할지 결정해야 합니다.
+

@@ -39,11 +39,17 @@ jobs:
           SOURCE_BRANCH: ${{ inputs.source_branch }}
         run: |
           image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
-          if [[ "$SOURCE_BRANCH" == "main" ]]; then
-            channel_tag="latest"
-          else
-            channel_tag="develop"
-          fi
+          case "$SOURCE_BRANCH" in
+            main)
+              channel_tag="latest"
+              ;;
+            release)
+              channel_tag="release"
+              ;;
+            *)
+              channel_tag="develop"
+              ;;
+          esac
 
           echo "app_image=${image_root}:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
           echo "backup_image=${image_root}-mysql-backup:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
@@ -87,7 +93,15 @@ jobs:
   deploy:
     name: Deploy to Linux host
     needs: publish
-    if: vars.SSH_DEPLOY_ENABLED == 'true' && (needs.publish.outputs.source_branch == 'main' || vars.DEVELOP_DEPLOY_ENABLED == 'true')
+    if: >-
+      vars.SSH_DEPLOY_ENABLED == 'true' &&
+      (
+        needs.publish.outputs.source_branch == 'main' ||
+        (
+          (needs.publish.outputs.source_branch == 'develop' || needs.publish.outputs.source_branch == 'release') &&
+          vars.DEVELOP_DEPLOY_ENABLED == 'true'
+        )
+      )
     runs-on: ubuntu-latest
     environment: ${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
     env:
