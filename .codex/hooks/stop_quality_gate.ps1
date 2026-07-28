@@ -50,23 +50,10 @@ function Test-DecisionRecordRequired {
     $latestSection -notmatch '남은 사용자 결정'
 }
 
-function Write-SessionSummary {
-    $logPath = Join-Path (Get-HookStateDirectory) "activity.jsonl"
-    if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) { return "" }
-    $entries = @(Get-Content -LiteralPath $logPath -Tail 80 -ErrorAction SilentlyContinue)
-    if ($entries.Count -eq 0) { return "" }
-    $buildCount = @($entries | Where-Object { $_ -match 'dotnet\s+build' }).Count
-    "[zombie-hook] Session activity: $($entries.Count) recent tool event(s), $buildCount dotnet build command(s) observed."
-}
-
 function Invoke-StopQualityGate {
     $messages = New-Object System.Collections.Generic.List[string]
     $changedFiles = @(Get-ChangedProjectFiles)
     if ($changedFiles.Count -eq 0) {
-        $sessionSummary = Write-SessionSummary
-        if (-not [string]::IsNullOrWhiteSpace($sessionSummary)) {
-            return Write-HookFeedback "Stop" $sessionSummary
-        }
         return ""
     }
 
@@ -99,10 +86,6 @@ function Invoke-StopQualityGate {
         }
     }
 
-    $sessionSummary = Write-SessionSummary
-    if (-not [string]::IsNullOrWhiteSpace($sessionSummary)) {
-        $messages.Add($sessionSummary)
-    }
     if ($messages.Count -gt 0) {
         return Write-HookFeedback "Stop" ($messages -join "`n`n")
     }

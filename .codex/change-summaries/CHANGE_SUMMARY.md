@@ -194,3 +194,11 @@
 - 검증: .NET 10 Release 빌드가 경고·오류 없이 통과했고, Docker Compose 렌더링, 전체 Bash 구문 검사, 외부 Action 전체 40자리 SHA 고정 여부와 CD 직접 push 트리거 제거를 확인했습니다. 임시 MySQL 기반 Migration 차단·불일치 거부·baseline 성공 통합 테스트는 CI에 추가했으며 로컬 Docker 데몬이 실행 중이지 않아 현재 PC에서는 실행하지 못했습니다.
 - 남은 사용자 결정: 기존 DB가 있다면 외부 백업 확보 후 baseline 명령을 실제 운영 환경에서 실행해야 합니다. 외부 API 공개 전 TLS 역방향 프록시와 인증서를 준비해야 합니다.
 
+## 2026-07-28 - Stop 훅 세션 활동 요약 제거
+
+- 목적: 정상 응답마다 표시되던 최근 도구 이벤트 수와 `dotnet build` 실행 횟수 안내를 제거해 불필요한 종료 메시지를 없앴습니다.
+- 변경 영역: `.codex/hooks/stop_quality_gate.ps1`.
+- 반영 내용: `Stop` 훅의 세션 활동 집계와 성공 요약 출력을 제거하고, 실제 정적 분석 경고·품질 차단·빌드 상태 안내만 유지했습니다.
+- 검증: PowerShell 구문 검사와 `stop_quality_gate.ps1 -SelfTest`로 정상 동작을 확인했습니다.
+- 남은 사용자 결정: 없음.
+
