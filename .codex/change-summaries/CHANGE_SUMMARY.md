@@ -169,3 +169,15 @@
 - 검증: 커밋 제목과 본문 규칙, 커밋 명령 예시가 스킬에 반영되었는지 확인했습니다.
 - 남은 사용자 결정: 없음.
 
+## 2026-07-26 - Codex 훅 차단·경고·병렬 실행 안정화
+
+- 목적: 위험 명령과 시크릿을 이벤트별 공식 deny 스키마로 차단하고, 경고를 Codex가 소비하는 JSON으로 전달하며, 병렬 `PostToolUse` 로그 기록 충돌이 훅 실패로 이어지지 않도록 했습니다.
+- 변경 영역: `.codex/hooks/ZombieHookCommon.ps1`, `pre_tool_guard.ps1`, `post_tool_audit.ps1`, `subagent_stop_audit.ps1`, `stop_quality_gate.ps1`.
+- 반영 내용:
+  - `PreToolUse`는 `permissionDecision=deny`, `PermissionRequest`는 `decision.behavior=deny`를 반환하도록 이벤트별 출력을 분리했습니다.
+  - 상대경로 재귀 삭제, 경로 checkout, PowerShell 축약 재귀 옵션과 추가 시크릿 필드 탐지를 보강했습니다.
+  - `PostToolUse` 경고는 `systemMessage`와 `additionalContext`, `SubagentStop`·`Stop` 경고는 `systemMessage`로 한 번만 출력하도록 정리했습니다.
+  - 활동 로그 쓰기에 재시도를 적용하고, 로깅·감사 예외가 훅 종료 코드 1로 전파되지 않도록 격리했습니다.
+- 검증: 전체 PowerShell 구문 검사와 훅 자체 테스트를 통과했고, `PermissionRequest`, `PostToolUse`, `SubagentStop`, `Stop` 실제 형태 payload에서 종료 코드 0과 유효한 JSON 출력을 확인했습니다. 병렬 16개 `PostToolUse` 실행은 모두 성공했고, 장기 파일 잠금 상황에서도 종료 코드 0과 `systemMessage`·`additionalContext`가 반환됐습니다.
+- 남은 사용자 결정: 없음.
+

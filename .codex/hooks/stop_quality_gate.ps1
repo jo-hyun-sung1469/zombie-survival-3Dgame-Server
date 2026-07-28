@@ -52,17 +52,21 @@ function Test-DecisionRecordRequired {
 
 function Write-SessionSummary {
     $logPath = Join-Path (Get-HookStateDirectory) "activity.jsonl"
-    if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) { return }
+    if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) { return "" }
     $entries = @(Get-Content -LiteralPath $logPath -Tail 80 -ErrorAction SilentlyContinue)
-    if ($entries.Count -eq 0) { return }
+    if ($entries.Count -eq 0) { return "" }
     $buildCount = @($entries | Where-Object { $_ -match 'dotnet\s+build' }).Count
-    Write-HookWarning "[zombie-hook] Session activity: $($entries.Count) recent tool event(s), $buildCount dotnet build command(s) observed."
+    "[zombie-hook] Session activity: $($entries.Count) recent tool event(s), $buildCount dotnet build command(s) observed."
 }
 
 function Invoke-StopQualityGate {
+    $messages = New-Object System.Collections.Generic.List[string]
     $changedFiles = @(Get-ChangedProjectFiles)
     if ($changedFiles.Count -eq 0) {
-        Write-SessionSummary
+        $sessionSummary = Write-SessionSummary
+        if (-not [string]::IsNullOrWhiteSpace($sessionSummary)) {
+            return Write-HookFeedback "Stop" $sessionSummary
+        }
         return ""
     }
 
@@ -72,29 +76,36 @@ function Invoke-StopQualityGate {
     $warnings = @($findings | Where-Object { $_.Severity -ne "Critical" })
 
     if ($warnings.Count -gt 0) {
-        Write-HookWarning "[zombie-hook] Non-blocking performance/security warnings:`n$(Format-Findings $warnings 10)"
+        $messages.Add("[zombie-hook] Non-blocking performance/security warnings:`n$(Format-Findings $warnings 10)")
     }
     if ($critical.Count -gt 0) {
-        return Write-HookBlock "[zombie quality gate] Critical issue(s) found before stopping:`n$(Format-Findings $critical 12)`nFix these before ending the task."
+        return Write-HookBlock "[zombie quality gate] Critical issue(s) found before stopping:`n$(Format-Findings $critical 12)`nFix these before ending the task." ($messages -join "`n`n")
     }
     if (Test-ChangeSummaryRequired $relativePaths) {
-        return Write-HookBlock "[zombie harness gate] Harness/workflow files changed but .codex/change-summaries/CHANGE_SUMMARY.md was not updated. Add a Korean summary with date, purpose, changed areas, verification, and remaining decisions."
+        return Write-HookBlock "[zombie harness gate] Harness/workflow files changed but .codex/change-summaries/CHANGE_SUMMARY.md was not updated. Add a Korean summary with date, purpose, changed areas, verification, and remaining decisions." ($messages -join "`n`n")
     }
     if (Test-DecisionRecordRequired $relativePaths) {
-        return Write-HookBlock "[zombie decision gate] Broad code changes require an explicit Korean change summary that records remaining user decisions. This prevents Codex from silently making excessive implementation decisions alone."
+        return Write-HookBlock "[zombie decision gate] Broad code changes require an explicit Korean change summary that records remaining user decisions. This prevents Codex from silently making excessive implementation decisions alone." ($messages -join "`n`n")
     }
 
     $codeChanged = @($relativePaths | Where-Object { $_ -match '\.(cs|csproj)$' })
     if ($codeChanged.Count -gt 0) {
         $lastBuild = Get-LastBuildTimestamp
         if ($null -eq $lastBuild) {
-            Write-HookWarning "[zombie-hook] C# project files changed, but no dotnet build success was observed by hooks in this session."
+            $messages.Add("[zombie-hook] C# project files changed, but no dotnet build success was observed by hooks in this session.")
         }
         else {
-            Write-HookWarning "[zombie-hook] Last observed dotnet build success: $($lastBuild.ToString("u"))."
+            $messages.Add("[zombie-hook] Last observed dotnet build success: $($lastBuild.ToString("u")).")
         }
     }
-    Write-SessionSummary
+
+    $sessionSummary = Write-SessionSummary
+    if (-not [string]::IsNullOrWhiteSpace($sessionSummary)) {
+        $messages.Add($sessionSummary)
+    }
+    if ($messages.Count -gt 0) {
+        return Write-HookFeedback "Stop" ($messages -join "`n`n")
+    }
     ""
 }
 
@@ -113,6 +124,8 @@ if ($SelfTest) {
         "zombie_servival-3Dgame_Server/Contracts/Auth/LoginRequest.cs",
         "zombie_servival-3Dgame_Server/Contracts/Gacha/GachaPullResponse.cs"
     )) { throw "stop_quality_gate decision self-test failed." }
+    $feedbackJson = Write-HookFeedback "Stop" "test warning" | ConvertFrom-Json
+    if ($feedbackJson.systemMessage -ne "test warning") { throw "stop_quality_gate feedback self-test failed." }
     "stop_quality_gate self-test passed."
     exit 0
 }
