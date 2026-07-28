@@ -53,6 +53,22 @@ Description rules:
 - No trailing period
 - Prefer imperative wording such as `jwt 클레임 검증 추가`
 - Avoid past tense phrasing
+- Do not include an issue number in the subject line
+
+Issue reference rules:
+
+- Put the related issue number in the commit body after a blank line
+- Use `Refs: #<issue-number>` when the commit is related to an issue without automatically closing it
+- Use `Closes: #<issue-number>` only when the user explicitly wants the commit or merged PR to close that issue
+- Omit the issue reference body when no issue number was provided
+
+Example:
+
+```text
+feat(data): EF 마이그레이션과 DB 헬스체크 추가
+
+#20
+```
 
 ## Commit Flow
 
@@ -62,7 +78,7 @@ Description rules:
 4. Group one logical unit per commit.
 5. Write each commit message so it describes the specific change in that commit.
 6. Stage only the intended files or hunks.
-7. Commit with `git commit -m "type(scope): description"` using a Korean description.
+7. Commit with `git commit -m "type(scope): description"` using a Korean description. When an issue number was provided, add a second message paragraph such as `-m "#20"` instead of putting it in the subject.
 8. Verify recent history with `git log --oneline -n <count>`.
 
 ## Fine-Grained Feature Commit Splitting

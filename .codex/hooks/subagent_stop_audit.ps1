@@ -17,15 +17,24 @@ function Invoke-SubagentStopAudit {
     }
 
     if ($missing.Count -gt 0) {
-        Write-HookWarning "[zombie-subagent] 서브 에이전트 결과에 다음 항목이 부족할 수 있습니다: $($missing -join ', '). 필요하면 메인 세션에서 보완하세요."
+        return "[zombie-subagent] 서브 에이전트 결과에 다음 항목이 부족할 수 있습니다: $($missing -join ', '). 필요하면 메인 세션에서 보완하세요."
     }
+
+    ""
 }
 
 if ($SelfTest) {
-    Invoke-SubagentStopAudit "작업 완료"
+    $message = Invoke-SubagentStopAudit "작업 완료"
+    $feedbackJson = Write-HookFeedback "SubagentStop" $message | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($message) -or $feedbackJson.systemMessage -ne $message) {
+        throw "subagent_stop_audit self-test failed."
+    }
     "subagent_stop_audit self-test passed."
     exit 0
 }
 
 $payload = Read-HookPayload
-Invoke-SubagentStopAudit $payload.Raw
+$message = Invoke-SubagentStopAudit $payload.Raw
+if (-not [string]::IsNullOrWhiteSpace($message)) {
+    Write-HookFeedback "SubagentStop" $message
+}

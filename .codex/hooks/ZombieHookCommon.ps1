@@ -34,9 +34,58 @@ function Get-HookStateDirectory {
     $dir
 }
 
+function Get-HookEventName {
+    param($Json, [Parameter(Mandatory = $true)][string]$DefaultEventName)
+    if ($null -eq $Json) { return $DefaultEventName }
+
+    foreach ($propertyName in @("hook_event_name", "hookEventName")) {
+        $property = $Json.PSObject.Properties[$propertyName]
+        if ($null -ne $property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+            return [string]$property.Value
+        }
+    }
+
+    $DefaultEventName
+}
+
+function Write-HookDeny {
+    param(
+        [Parameter(Mandatory = $true)][string]$EventName,
+        [Parameter(Mandatory = $true)][string]$Reason
+    )
+
+    if ($EventName -eq "PermissionRequest") {
+        return [pscustomobject]@{
+            hookSpecificOutput = [pscustomobject]@{
+                hookEventName = "PermissionRequest"
+                decision = [pscustomobject]@{
+                    behavior = "deny"
+                    message = $Reason
+                }
+            }
+        } | ConvertTo-Json -Compress -Depth 5
+    }
+
+    [pscustomobject]@{
+        hookSpecificOutput = [pscustomobject]@{
+            hookEventName = "PreToolUse"
+            permissionDecision = "deny"
+            permissionDecisionReason = $Reason
+        }
+    } | ConvertTo-Json -Compress -Depth 5
+}
+
 function Write-HookBlock {
-    param([Parameter(Mandatory = $true)][string]$Reason)
-    [pscustomobject]@{ decision = "block"; reason = $Reason } | ConvertTo-Json -Compress
+    param(
+        [Parameter(Mandatory = $true)][string]$Reason,
+        [AllowEmptyString()][string]$SystemMessage = ""
+    )
+
+    $output = [ordered]@{ decision = "block"; reason = $Reason }
+    if (-not [string]::IsNullOrWhiteSpace($SystemMessage)) {
+        $output["systemMessage"] = $SystemMessage
+    }
+    $output | ConvertTo-Json -Compress
 }
 
 function Write-HookContext {
@@ -49,9 +98,21 @@ function Write-HookContext {
     } | ConvertTo-Json -Compress
 }
 
-function Write-HookWarning {
-    param([Parameter(Mandatory = $true)][string]$Message)
-    [Console]::Error.WriteLine($Message)
+function Write-HookFeedback {
+    param(
+        [Parameter(Mandatory = $true)][string]$EventName,
+        [Parameter(Mandatory = $true)][string]$Message,
+        [switch]$IncludeAdditionalContext
+    )
+
+    $output = [ordered]@{ systemMessage = $Message }
+    if ($IncludeAdditionalContext) {
+        $output["hookSpecificOutput"] = [pscustomobject]@{
+            hookEventName = $EventName
+            additionalContext = $Message
+        }
+    }
+    $output | ConvertTo-Json -Compress -Depth 5
 }
 
 function Get-JsonValuesByName {
@@ -117,6 +178,40 @@ function Get-PasswordAssignmentValues {
     }
 
     $values.ToArray()
+}
+
+function Get-SensitiveAssignments {
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
+    $assignments = New-Object System.Collections.Generic.List[object]
+    if ([string]::IsNullOrWhiteSpace($Text)) { return @() }
+
+    $normalizedText = [regex]::Replace($Text, '\\\"', '"')
+
+    $sensitiveNames = "SecretKey|ApiKey|AppPassword|SmtpPassword|Password|ConnectionString|ClientSecret|AccessToken|RefreshToken|PrivateKey"
+    $patterns = @(
+        ('(?i)"(' + $sensitiveNames + ')"\s*:\s*"([^"]*)"')
+        ("(?i)\b(" + $sensitiveNames + ")\b\s*=\s*(?:`"([^`"`r`n}]*)`"|'([^'`r`n}]*)'|([^;`````"'\s}]+))")
+    )
+
+    foreach ($patternIndex in 0..($patterns.Count - 1)) {
+        foreach ($match in [regex]::Matches($normalizedText, $patterns[$patternIndex])) {
+            $value = ""
+            $firstValueGroup = 2
+            $lastValueGroup = if ($patternIndex -eq 0) { 2 } else { 4 }
+            foreach ($groupIndex in $firstValueGroup..$lastValueGroup) {
+                if ($match.Groups[$groupIndex].Success) {
+                    $value = $match.Groups[$groupIndex].Value
+                    break
+                }
+            }
+            $assignments.Add([pscustomobject]@{
+                Name = $match.Groups[1].Value
+                Value = $value
+            })
+        }
+    }
+
+    $assignments.ToArray()
 }
 
 function Get-ChangedProjectFiles {
@@ -241,7 +336,7 @@ function Add-Finding {
 function Invoke-ZombieStaticScan {
     param([Parameter(Mandatory = $true)][string[]]$Paths)
     $findings = New-Object System.Collections.Generic.List[object]
-    $extensions = @(".cs", ".json", ".http", ".md", ".toml", ".ps1", ".csproj")
+    $extensions = @(".cs", ".json", ".http", ".md", ".toml", ".ps1", ".csproj", ".env", ".yml", ".yaml")
 
     foreach ($path in $Paths) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
@@ -272,12 +367,10 @@ function Invoke-ZombieStaticScan {
                 }
             }
 
-            if ($line -match '(?i)"(SecretKey|ApiKey|AppPassword|SmtpPassword|Password)"\s*:\s*"([^"]*)"') {
-                $key = $Matches[1]
-                $value = $Matches[2]
+            foreach ($assignment in @(Get-SensitiveAssignments $line)) {
                 $configLike = $relative -match '(^|/)appsettings(\..*)?\.json$|\.env$'
-                if ($configLike -and -not (Test-PlaceholderValue $value)) {
-                    Add-Finding $findings "Critical" "Security" $path $lineNumber "secret-config-value" "$key contains a non-placeholder value in a config-like file."
+                if ($configLike -and -not (Test-PlaceholderValue $assignment.Value)) {
+                    Add-Finding $findings "Critical" "Security" $path $lineNumber "secret-config-value" "$($assignment.Name) contains a non-placeholder value in a config-like file."
                 }
             }
 

@@ -135,3 +135,70 @@
 - 검증: `dotnet build`가 경고와 오류 없이 통과했습니다.
 - 남은 사용자 결정: GitHub 리뷰 스레드에 답변/해결 표시를 할지, 그리고 이 수정사항을 별도 커밋 후 push할지는 사용자가 선택해야 합니다.
 
+## 2026-07-18 - Docker Compose 기반 EC2 배포 및 MySQL S3 백업
+
+- 목적: 외부 DB 없이 단일 EC2에서 앱, MySQL 8.4.10, S3 백업 서비스를 운영하고 앱 실패 시 데이터 볼륨을 유지한 채 직전 이미지로 복구하도록 배포 체계를 구성했습니다.
+- 변경 영역: `Program.cs`, 프로젝트 패키지와 .NET 10 타깃, `Data/Migrations`, `Dockerfile`, `compose.yaml`, `deployment`, GitHub CI/CD, 환경 변수 예시와 배포 문서.
+- 검증:
+  - .NET 10 Release restore/build/test가 경고와 오류 없이 통과했습니다.
+  - EF 모델과 최초 Migration 사이에 미반영 변경이 없음을 확인했습니다.
+  - 앱과 백업 이미지를 linux/amd64로 빌드했고 앱이 UID 1654로 실행되며 Docker 헬스체크를 포함하는지 확인했습니다.
+  - 빈 MySQL에서 Migration 1건과 총기 시드 5건이 생성되고 앱 재시작 시 중복되지 않음을 확인했습니다.
+  - MySQL 컨테이너 재생성 후 검증용 사용자와 플레이어 저장 데이터가 유지됨을 확인했습니다.
+  - `/health`가 정상 DB에서 200, DB 중지 시 503, 복구 후 200을 반환함을 확인했습니다.
+  - 백업 이미지의 AWS CLI 2.27.49와 mysqldump 8.4.10 실행을 확인했고 앱 이미지 레이어에 JWT, DB, SMTP 비밀 설정 흔적이 없음을 확인했습니다.
+- 남은 사용자 결정: S3 버킷 기본 암호화·30일 Lifecycle, EC2 IAM Role, GitHub Environment Secret을 실제 인프라에 설정해야 합니다. 기존 `EnsureCreated()` 운영 DB가 있다면 최초 배포 전 baseline 또는 빈 DB 이전 절차를 별도로 승인해야 합니다.
+
+## 2026-07-22 - 로컬 우선 및 일반 Linux SSH 배포 전환
+
+- 목적: 유료 AWS 리소스 없이 Windows Docker Desktop에서 먼저 운영 검증하고, 이후 개인 Linux 서버가 준비되면 동일 구성을 GitHub Actions SSH로 배포하도록 전환했습니다.
+- 변경 영역: `app.env.example`, `compose.yaml`, `.github/workflows/CD.yml`, `deployment/scripts`, 배포 문서.
+- 반영 내용:
+  - 실제 비밀값이 들어 있던 예제 파일을 Git에서 제외되는 `app.env`로 격리하고 예제는 빈 템플릿으로 재생성했습니다.
+  - 노출됐던 MySQL 앱/root 비밀번호와 JWT 키를 새 랜덤 값으로 교체하는 로컬 준비 스크립트를 추가했습니다.
+  - SSH 배포 대상을 EC2 전용 Secret에서 일반 Linux용 `SSH_HOST`, `SSH_USER`, `SSH_KEY`로 변경했습니다.
+  - `SSH_DEPLOY_ENABLED=true`일 때만 원격 배포하며, 그 전에는 GHCR 이미지 발행만 수행합니다.
+  - S3 백업은 `BACKUP_ENABLED=true`일 때만 실행하도록 선택 기능으로 변경했습니다.
+- 검증: 로컬 환경 파일의 비밀값 설정 여부만 확인하고 값 자체는 출력하지 않았으며, Compose와 CD 정적 검증을 수행했습니다.
+- 남은 사용자 결정: 노출된 기존 Gmail 앱 비밀번호를 Google 계정에서 폐기하고 새 앱 비밀번호를 `app.env`에 입력해야 합니다. 개인 Linux 서버 준비 후 SSH Secret과 `SSH_DEPLOY_ENABLED` 설정이 필요합니다.
+
+## 2026-07-22 - 커밋 이슈 번호 본문 표기 규칙 추가
+
+- 목적: 이슈 번호가 커밋 제목에 섞이지 않도록 하고, 연관 이슈는 커밋 본문의 `Refs: #번호` 형식으로 일관되게 기록하도록 규칙을 명시했습니다.
+- 변경 영역: `.codex/skills/commit/SKILL.md`.
+- 검증: 커밋 제목과 본문 규칙, 커밋 명령 예시가 스킬에 반영되었는지 확인했습니다.
+- 남은 사용자 결정: 없음.
+
+## 2026-07-26 - Codex 훅 차단·경고·병렬 실행 안정화
+
+- 목적: 위험 명령과 시크릿을 이벤트별 공식 deny 스키마로 차단하고, 경고를 Codex가 소비하는 JSON으로 전달하며, 병렬 `PostToolUse` 로그 기록 충돌이 훅 실패로 이어지지 않도록 했습니다.
+- 변경 영역: `.codex/hooks/ZombieHookCommon.ps1`, `pre_tool_guard.ps1`, `post_tool_audit.ps1`, `subagent_stop_audit.ps1`, `stop_quality_gate.ps1`.
+- 반영 내용:
+  - `PreToolUse`는 `permissionDecision=deny`, `PermissionRequest`는 `decision.behavior=deny`를 반환하도록 이벤트별 출력을 분리했습니다.
+  - 상대경로 재귀 삭제, 경로 checkout, PowerShell 축약 재귀 옵션과 추가 시크릿 필드 탐지를 보강했습니다.
+  - `PostToolUse` 경고는 `systemMessage`와 `additionalContext`, `SubagentStop`·`Stop` 경고는 `systemMessage`로 한 번만 출력하도록 정리했습니다.
+  - 활동 로그 쓰기에 재시도를 적용하고, 로깅·감사 예외가 훅 종료 코드 1로 전파되지 않도록 격리했습니다.
+- 검증: 전체 PowerShell 구문 검사와 훅 자체 테스트를 통과했고, `PermissionRequest`, `PostToolUse`, `SubagentStop`, `Stop` 실제 형태 payload에서 종료 코드 0과 유효한 JSON 출력을 확인했습니다. 병렬 16개 `PostToolUse` 실행은 모두 성공했고, 장기 파일 잠금 상황에서도 종료 코드 0과 `systemMessage`·`additionalContext`가 반환됐습니다.
+- 남은 사용자 결정: 없음.
+
+## 2026-07-26 - 배포 PR Migration·TLS·CI/CD 안전장치 보강
+
+- 목적: 기존 `EnsureCreated()` DB의 Migration 충돌로 인한 배포 중단, 평문 HTTP 직접 노출, CI 실패 커밋 배포와 가변 GitHub Action 태그 사용을 방지했습니다.
+- 변경 영역: `.github/workflows/CI.yml`, `.github/workflows/CD.yml`, `compose.yaml`, `app.env.example`, `deployment/README.md`, `deployment/migrations`, `deployment/scripts`.
+- 반영 내용:
+  - 기존 테이블은 있지만 최초 Migration 이력이 없는 DB를 앱 교체 전에 감지해 배포를 중단하도록 했습니다.
+  - 기존 DB의 테이블·컬럼·인덱스·외래키를 검증하고 전체 dump를 만든 뒤 최초 Migration baseline을 등록하는 명시적 명령을 추가했습니다.
+  - 앱 포트를 호스트 loopback에만 바인딩하고 운영 환경 기본값을 `Production`으로 변경했으며, 외부 공개 시 TLS 역방향 프록시를 필수로 문서화했습니다.
+  - CI를 통과한 `main`·`develop` push만 CD 재사용 워크플로를 호출하도록 연결했습니다.
+  - CI/CD에서 사용하는 외부 GitHub Actions를 검증된 release commit SHA로 고정했습니다.
+- 검증: .NET 10 Release 빌드가 경고·오류 없이 통과했고, Docker Compose 렌더링, 전체 Bash 구문 검사, 외부 Action 전체 40자리 SHA 고정 여부와 CD 직접 push 트리거 제거를 확인했습니다. 임시 MySQL 기반 Migration 차단·불일치 거부·baseline 성공 통합 테스트는 CI에 추가했으며 로컬 Docker 데몬이 실행 중이지 않아 현재 PC에서는 실행하지 못했습니다.
+- 남은 사용자 결정: 기존 DB가 있다면 외부 백업 확보 후 baseline 명령을 실제 운영 환경에서 실행해야 합니다. 외부 API 공개 전 TLS 역방향 프록시와 인증서를 준비해야 합니다.
+
+## 2026-07-28 - Stop 훅 세션 활동 요약 제거
+
+- 목적: 정상 응답마다 표시되던 최근 도구 이벤트 수와 `dotnet build` 실행 횟수 안내를 제거해 불필요한 종료 메시지를 없앴습니다.
+- 변경 영역: `.codex/hooks/stop_quality_gate.ps1`.
+- 반영 내용: `Stop` 훅의 세션 활동 집계와 성공 요약 출력을 제거하고, 실제 정적 분석 경고·품질 차단·빌드 상태 안내만 유지했습니다.
+- 검증: PowerShell 구문 검사와 `stop_quality_gate.ps1 -SelfTest`로 정상 동작을 확인했습니다.
+- 남은 사용자 결정: 없음.
+
