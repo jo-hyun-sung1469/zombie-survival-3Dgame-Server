@@ -9,7 +9,7 @@ description: EF Core and MySQL persistence guide for this repository. Use when e
 
 - DbContext: `GameDbContext`
 - Provider: MySQL
-- Startup behavior: `Database.EnsureCreated()`
+- Startup behavior: `Database.MigrateAsync()`
 
 ## Existing Tables And Relationships
 
@@ -25,7 +25,7 @@ description: EF Core and MySQL persistence guide for this repository. Use when e
 
 - Keep entity constraints in `OnModelCreating`.
 - Add indexes and max lengths there when introducing new persisted fields.
-- Be careful with relationship changes because the project currently relies on startup creation, not migrations.
+- Add a migration for every intentional schema change and keep the model snapshot synchronized.
 
 ## Query Rules
 
@@ -40,6 +40,6 @@ When adding a field:
 1. Update the model
 2. Update `OnModelCreating` constraints if needed
 3. Update DTOs and service mappings
-4. Consider impact on the current MySQL schema and `EnsureCreated()` workflow
+4. Add and review an EF Core migration for the MySQL schema change
 
-If a change requires formal schema evolution, call that out clearly instead of silently assuming migrations exist.
+Run `dotnet ef migrations has-pending-model-changes` so model changes cannot bypass migration review.

@@ -34,7 +34,7 @@ function New-ContextForPrompt {
         Add-Snippet "[Zombie save context] Use player-save-flow: player identity is read from JWT, Gold must be non-negative, WeaponStates is required, weapon names must exist in the firearm catalog, and omitted weapon rows are removed by current upsert semantics."
     }
     if ($lower -match 'ef|dbcontext|mysql|database|query|include|tracking|performance|slow|성능|쿼리|데이터베이스') {
-        Add-Snippet "[Zombie persistence/performance context] Use efcore-mysql-persistence: read-only EF queries should use AsNoTracking; pass CancellationToken into async EF calls; Include only the relationships the service actually needs; call out schema impact because this project uses EnsureCreated rather than migrations."
+        Add-Snippet "[Zombie persistence/performance context] Use efcore-mysql-persistence: read-only EF queries should use AsNoTracking; pass CancellationToken into async EF calls; Include only the relationships the service actually needs; add and review migrations for schema changes."
     }
     if ($lower -match 'gacha|rng|random|probability|reward|roulette|가챠|확률|보상') {
         Add-Snippet "[Zombie gacha/security context] RNG and reward decisions must be server-side only. Do not accept client seed, selected reward, rarity, probability, or cost override fields."

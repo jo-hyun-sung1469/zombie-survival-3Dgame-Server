@@ -49,7 +49,7 @@ zombie_servival-3Dgame_Server/
 | Domain | Endpoints | Status |
 |--------|-----------|--------|
 | Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` | 완료 |
-| Inventory | `POST /api/player-data/save`, `GET /api/player-data/me` | 완료 |
+| Inventory | `GET /api/player-data/me` | 완료 |
 | Player | Character stats, in-game stat upgrades | 계획됨 |
 | Gacha | Weapon roulette, probability, pity system | 계획됨 |
 | GameSession | Continue / restart / new game, wave state | 계획됨 |
@@ -59,7 +59,7 @@ zombie_servival-3Dgame_Server/
 ## Data And Security
 
 - MySQL persistence through `GameDbContext`
-- Startup database creation uses `Database.EnsureCreated()`
+- Startup applies committed EF Core migrations with `Database.MigrateAsync()`
 - JWT Bearer authentication configured in `Program.cs`
 - Controllers read authenticated identity from JWT claims, not request body fields
 

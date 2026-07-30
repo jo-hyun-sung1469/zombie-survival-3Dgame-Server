@@ -42,6 +42,6 @@
 This server handles persistence and game state only — not real-time hit detection.
 The following still applies:
 
-- Reject abnormally large gold or stat values.
-- Reject requests where the payload does not match the authenticated player.
-- Log and reject duplicate or replayed save requests where detectable.
+- Do not accept gold, ownership, or stat levels as client-authored save state.
+- Reject requests where the authenticated player claim is missing.
+- Reject concurrent progression mutations through optimistic concurrency checks.

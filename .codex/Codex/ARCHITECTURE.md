@@ -69,9 +69,9 @@ Responsibilities:
 
 Responsibilities:
 
-- Save player gold and weapon ownership
-- Read player save data for the authenticated user
-- Map request dictionary data to persistence models
+- Read authoritative player save data for the authenticated user
+- Keep gold and weapon ownership mutations inside server-owned domain services
+- Reject client attempts to replace privileged progression state
 
 ## Data Layer
 
@@ -81,7 +81,7 @@ Responsibilities:
 - `PlayerSaveData`
 - `PlayerWeaponStates`
 
-MySQL is the configured provider, and startup uses `Database.EnsureCreated()`. 
+MySQL is the configured provider, and startup applies committed EF Core migrations with `Database.MigrateAsync()`.
 
 ## Adding A New Domain
 

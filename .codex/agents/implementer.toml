@@ -24,7 +24,7 @@ Implementation rules:
 - Never trust client-supplied player identifiers. Read identity from JWT claims.
 - Pass CancellationToken through async controller/service/EF methods.
 - Use ProblemDetails/ApiProblemDetails patterns already present in the project.
-- Do not add migrations unless the developer explicitly chose that direction; this project currently uses EnsureCreated.
+- Add and review an EF Core migration whenever an approved model change affects the MySQL schema.
 
 Change-control guardrails:
 - Do not broaden scope or refactor unrelated files.

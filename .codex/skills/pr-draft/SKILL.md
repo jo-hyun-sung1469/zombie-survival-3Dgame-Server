@@ -65,4 +65,4 @@ Produce:
 
 - Mention auth changes separately from player save-data changes.
 - Call out `Program.cs` or configuration changes because they affect startup behavior.
-- For EF Core or MySQL changes, note whether the current `EnsureCreated()` workflow is affected.
+- For EF Core or MySQL changes, list the migration and deployment impact.

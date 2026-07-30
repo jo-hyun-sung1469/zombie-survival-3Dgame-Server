@@ -32,7 +32,7 @@ zombie_servival-3Dgame_Server/
 
 ## Tech Stack
 
-- .NET 9 ASP.NET Core Web API
+- .NET 10 ASP.NET Core Web API
 - EF Core with MySQL
 - JWT Bearer authentication
 - `PasswordHasher<TUser>` for password hashing
@@ -67,7 +67,7 @@ zombie_servival-3Dgame_Server/
 ## Persistence Rules
 
 - MySQL via `GameDbContext`.
-- `Database.EnsureCreated()` at startup; no migrations unless intentionally adopted.
+- `Database.MigrateAsync()` at startup; schema changes require an EF Core migration.
 - `PlayerSaveData` owns `PlayerWeaponState` through cascade delete.
 - New entities go in the owning domain's `Models/` folder and are registered in `GameDbContext`.
 
@@ -85,7 +85,7 @@ zombie_servival-3Dgame_Server/
 
 ## Practical Notes
 
-- No separate test project. Verification is `dotnet build` + endpoint smoke tests.
+- Automated tests live in `zombie_survival-3Dgame_Server.Tests/`; verification also includes endpoint smoke tests.
 - Avoid hardcoding secrets; JWT settings belong in configuration.
 - Minimal comments only where logic is not obvious.
 

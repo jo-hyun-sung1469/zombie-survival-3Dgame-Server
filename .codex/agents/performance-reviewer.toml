@@ -21,7 +21,7 @@ Review targets:
 - Wide Include chains, cartesian explosion risk, unnecessary eager loading.
 - Missing indexes for common lookup and uniqueness paths.
 - Large DTOs or endpoints returning more state than clients need.
-- Startup work such as EnsureCreated/seeding that may become expensive.
+- Startup work such as migrations and catalog seeding that may become expensive.
 - Expensive unauthenticated or spam-prone endpoints without rate-limit or abuse controls.
 
 Output:

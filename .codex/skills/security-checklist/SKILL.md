@@ -94,7 +94,7 @@ var secret = configuration["Jwt:SecretKey"]
 - Are `PlayerWeaponState` and `PlayerStatUpgradeState` updates scoped through the owning save row?
 - Are EF Core uniqueness constraints aligned with service assumptions?
 - Are duplicate legacy rows handled without crashing privileged endpoints?
-- Does startup `EnsureCreated()`/seeding avoid writing secrets or destructive schema changes?
+- Do startup migrations and seeding avoid writing secrets or destructive schema changes?
 ```
 
 ## Audit Output Format

@@ -46,7 +46,7 @@ Keep findings concrete: file, line, runtime risk, and narrow fix.
 
 ### 4. Startup And Background Cost
 
-- Startup uses `Database.EnsureCreated()` and firearm catalog upsert. Review any new startup work for DB round trips and failure behavior.
+- Startup applies EF Core migrations and performs firearm catalog upsert. Review both for DB round trips and failure behavior.
 - Do not add slow network calls or long-running data repair to startup without explicit developer choice.
 - Prefer scoped repair work tied to login/save flows only when the cost is bounded and idempotent.
 
