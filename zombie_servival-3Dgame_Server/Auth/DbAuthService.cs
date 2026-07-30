@@ -41,18 +41,35 @@ public sealed class DbAuthService(
         };
         verificationCode.CodeHash = _codeHasher.HashPassword(verificationCode, code);
 
+        dbContext.AuthVerificationCodes.Add(verificationCode);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
         try
         {
             await emailSender.SendRegisterVerificationCodeAsync(normalizedEmail, code, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to send registration verification email to {Email}", normalizedEmail);
+            dbContext.AuthVerificationCodes.Remove(verificationCode);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception cleanupException)
+            {
+                logger.LogWarning(
+                    cleanupException,
+                    "Failed to remove an undelivered registration verification for {Email}.",
+                    normalizedEmail);
+            }
+
             return new RegisterEmailCodeResult { Status = RegisterEmailCodeStatus.EmailDeliveryFailed };
         }
-
-        dbContext.AuthVerificationCodes.Add(verificationCode);
-        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new RegisterEmailCodeResult
         {
@@ -93,21 +110,57 @@ public sealed class DbAuthService(
 
         if (codeResult is PasswordVerificationResult.Failed)
         {
-            verificationCode.AttemptCount++;
-            await dbContext.SaveChangesAsync(cancellationToken);
-            return verificationCode.AttemptCount >= _emailAuthOptions.MaxAttempts
+            var updatedRows = await dbContext.AuthVerificationCodes
+                .Where(x => x.Id == verificationId
+                            && x.ConsumedAtUtc == null
+                            && x.VerifiedAtUtc == null
+                            && x.ExpiresAtUtc > now
+                            && x.AttemptCount < _emailAuthOptions.MaxAttempts)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(x => x.AttemptCount, x => x.AttemptCount + 1)
+                        .SetProperty(x => x.Version, x => x.Version + 1),
+                    cancellationToken);
+
+            if (updatedRows == 0)
+            {
+                return new RegisterEmailVerificationResult
+                {
+                    Status = RegisterEmailVerificationStatus.TooManyAttempts
+                };
+            }
+
+            var attemptCount = verificationCode.AttemptCount + 1;
+            return attemptCount >= _emailAuthOptions.MaxAttempts
                 ? new RegisterEmailVerificationResult { Status = RegisterEmailVerificationStatus.TooManyAttempts }
                 : new RegisterEmailVerificationResult { Status = RegisterEmailVerificationStatus.InvalidCode };
         }
 
-        verificationCode.VerifiedAtUtc = now;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        var verifiedRows = await dbContext.AuthVerificationCodes
+            .Where(x => x.Id == verificationId
+                        && x.ConsumedAtUtc == null
+                        && x.VerifiedAtUtc == null
+                        && x.ExpiresAtUtc > now
+                        && x.AttemptCount < _emailAuthOptions.MaxAttempts)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(x => x.VerifiedAtUtc, now)
+                    .SetProperty(x => x.Version, x => x.Version + 1),
+                cancellationToken);
+
+        if (verifiedRows == 0)
+        {
+            return new RegisterEmailVerificationResult
+            {
+                Status = RegisterEmailVerificationStatus.InvalidCode
+            };
+        }
 
         return new RegisterEmailVerificationResult
         {
             Status = RegisterEmailVerificationStatus.Success,
             EmailVerificationId = verificationCode.Id,
-            VerifiedAtUtc = verificationCode.VerifiedAtUtc
+            VerifiedAtUtc = now
         };
     }
 
@@ -185,6 +238,7 @@ public sealed class DbAuthService(
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
         verificationCode.ConsumedAtUtc = now;
+        verificationCode.MarkChanged();
 
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync(cancellationToken);

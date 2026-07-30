@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.Player;
 
@@ -26,6 +27,7 @@ public sealed class PlayerController(
     }
 
     [HttpPost("upgrades")]
+    [EnableRateLimiting(RateLimitPolicyNames.PlayerMutation)]
     public async Task<ActionResult<UpgradePlayerStatResponse>> UpgradeStatAsync(
         [FromBody] UpgradePlayerStatRequest? request,
         CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.Gacha;
 
@@ -24,6 +25,7 @@ public sealed class GachaController(IGachaService gachaService) : ControllerBase
     }
 
     [HttpPost("pull")]
+    [EnableRateLimiting(RateLimitPolicyNames.PlayerMutation)]
     public async Task<ActionResult<GachaPullResponse>> PullAsync(CancellationToken cancellationToken)
     {
         var playerId = User.FindFirst("userId")?.Value;

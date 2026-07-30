@@ -44,6 +44,7 @@ services:
       Database__Name: ${MYSQL_DATABASE}
       Database__User: ${MYSQL_USER}
       Database__Credential: ${MYSQL_PASSWORD}
+      Database__SslMode: ${DATABASE_SSL_MODE:-Disabled}
       Jwt__SecretKey: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       SmtpEmail__Host: ${SMTP_HOST:?SMTP_HOST is required}
       SmtpEmail__Port: ${SMTP_PORT:-587}

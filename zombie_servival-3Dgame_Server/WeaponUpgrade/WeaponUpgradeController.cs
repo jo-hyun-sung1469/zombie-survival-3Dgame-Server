@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.WeaponUpgrade;
 
@@ -11,6 +12,7 @@ namespace zombie_survival_3Dgame_Server.WeaponUpgrade;
 public sealed class WeaponUpgradeController(IWeaponUpgradeService weaponUpgradeService) : ControllerBase
 {
     [HttpPost("{weaponName}")]
+    [EnableRateLimiting(RateLimitPolicyNames.PlayerMutation)]
     public async Task<ActionResult<UpgradeWeaponResponse>> UpgradeAsync(
         string weaponName,
         CancellationToken cancellationToken)

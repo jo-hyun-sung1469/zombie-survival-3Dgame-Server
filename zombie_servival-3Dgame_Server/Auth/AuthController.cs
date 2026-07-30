@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.Auth;
 using zombie_survival_3Dgame_Server.Inventory;
@@ -15,6 +16,7 @@ public sealed class AuthController(
 {
     [HttpPost("register/email-code")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.EmailCodeSend)]
     public async Task<ActionResult<RegisterEmailCodeResponse>> SendRegisterEmailCode(
         [FromBody] SendRegisterEmailCodeRequest request,
         CancellationToken cancellationToken)
@@ -37,6 +39,7 @@ public sealed class AuthController(
 
     [HttpPost("register/email-code/verify")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.EmailCodeVerify)]
     public async Task<ActionResult<VerifyRegisterEmailCodeResponse>> VerifyRegisterEmailCode(
         [FromBody] VerifyRegisterEmailCodeRequest request,
         CancellationToken cancellationToken)
@@ -66,6 +69,7 @@ public sealed class AuthController(
 
     [HttpPost("register")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.Register)]
     public async Task<ActionResult<RegisterResponse>> Register(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
@@ -94,6 +98,7 @@ public sealed class AuthController(
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.Login)]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var user = await authService.ValidateCredentialsAsync(request.UserName, request.Password, cancellationToken);

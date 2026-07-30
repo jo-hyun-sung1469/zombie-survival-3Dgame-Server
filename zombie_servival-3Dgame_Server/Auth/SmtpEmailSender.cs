@@ -46,7 +46,7 @@ public sealed class SmtpEmailSender(IOptions<SmtpEmailOptions> smtpEmailOptions)
     {
         if (!options.EnableSsl)
         {
-            return SecureSocketOptions.None;
+            throw new InvalidOperationException("SMTP transport encryption must be enabled.");
         }
 
         return options.Port == 465
