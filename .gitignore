@@ -1,0 +1,13 @@
+.idea/
+.vs/
+*.user
+**/bin/
+**/obj/
+**/temp-build/
+**/game-data.db/
+**/appsettings.Development.json
+**/player-defaults.local.json
+.codex-hook-state/
+app.env
+deployment.env
+deployment/backups/

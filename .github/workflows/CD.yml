@@ -1,70 +1,140 @@
 name: CD
 
 on:
-  push:
-    branches:
-      - main
-      - release
-      - develop
-
-  pull_request:
-    branches:
-      - main
-      - release
-      - develop
-
-  workflow_dispatch:
-
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  workflow_call:
+    inputs:
+      source_sha:
+        description: CI 검증을 통과한 commit SHA
+        required: true
+        type: string
+      source_branch:
+        description: CI 검증을 통과한 브랜치
+        required: true
+        type: string
 
 jobs:
-  deploy:
-    name: Deploy to EC2
+  publish:
+    name: Publish container images
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
+    outputs:
+      app_image: ${{ steps.images.outputs.app_image }}
+      backup_image: ${{ steps.images.outputs.backup_image }}
+      source_sha: ${{ steps.images.outputs.source_sha }}
+      source_branch: ${{ steps.images.outputs.source_branch }}
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.source_sha }}
+
+      - name: Resolve image names and tags
+        id: images
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+        run: |
+          image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
+          case "$SOURCE_BRANCH" in
+            main)
+              channel_tag="latest"
+              ;;
+            release)
+              channel_tag="release"
+              ;;
+            *)
+              channel_tag="develop"
+              ;;
+          esac
+
+          echo "app_image=${image_root}:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backup_image=${image_root}-mysql-backup:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "app_tags=${image_root}:${SOURCE_SHA},${image_root}:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "backup_tags=${image_root}-mysql-backup:${SOURCE_SHA},${image_root}-mysql-backup:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "source_branch=${SOURCE_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4.2.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
-        run: |
-          docker build -t $IMAGE_NAME:latest .
-
-      - name: Push Docker image
-        run: |
-          docker push $IMAGE_NAME:latest
-
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.2.5
+      - name: Build and push app image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.images.outputs.app_tags }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      - name: Build and push backup image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: deployment/backup
+          file: deployment/backup/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.images.outputs.backup_tags }}
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup
+
+  deploy:
+    name: Deploy to Linux host
+    needs: publish
+    if: >-
+      vars.SSH_DEPLOY_ENABLED == 'true' &&
+      (
+        needs.publish.outputs.source_branch == 'main' ||
+        (
+          (needs.publish.outputs.source_branch == 'develop' || needs.publish.outputs.source_branch == 'release') &&
+          vars.DEVELOP_DEPLOY_ENABLED == 'true'
+        )
+      )
+    runs-on: ubuntu-latest
+    environment: ${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
+    concurrency:
+      group: deploy-${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
+      DEPLOY_BACKUP_IMAGE: ${{ needs.publish.outputs.backup_image }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.publish.outputs.source_sha }}
+
+      - name: Upload deployment files
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: compose.yaml,deployment
+          target: ~/zombie-survival-server
+
+      - name: Deploy app with health rollback
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DEPLOY_APP_IMAGE,DEPLOY_BACKUP_IMAGE,GHCR_USERNAME,GHCR_PAT
           script: |
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            docker pull ${{ env.IMAGE_NAME }}:latest
-
-            docker stop game-server || true
-            docker rm game-server || true
-
-            docker run -d \
-              --name game-server \
-              -p 5000:8080 \
-              --restart always \
-              -e ASPNETCORE_ENVIRONMENT=Production \
-              ${{ env.IMAGE_NAME }}:latest
-
-            docker image prune -f
+            cd ~/zombie-survival-server
+            bash deployment/scripts/deploy.sh

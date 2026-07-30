@@ -1,0 +1,22 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace zombie_survival_3Dgame_Server.Contracts.Auth;
+
+public sealed class RegisterRequest
+{
+    [Required]
+    [StringLength(30, MinimumLength = 3)]
+    public string UserName { get; init; } = string.Empty;
+
+    [Required]
+    [EmailAddress]
+    [StringLength(254)]
+    public string Email { get; init; } = string.Empty;
+
+    [Required]
+    public string EmailVerificationId { get; init; } = string.Empty;
+
+    [Required]
+    [StringLength(100, MinimumLength = 6)]
+    public string Password { get; init; } = string.Empty;
+}

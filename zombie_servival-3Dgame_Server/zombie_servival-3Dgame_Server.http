@@ -1,0 +1,103 @@
+@zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/email-code
+Content-Type: application/json
+
+{
+  "email": "player1@example.com"
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/email-code/verify
+Content-Type: application/json
+
+{
+  "emailVerificationId": "{{emailVerificationId}}",
+  "code": "123456"
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "userName": "player1",
+  "email": "player1@example.com",
+  "emailVerificationId": "{{emailVerificationId}}",
+  "password": "player1-password"
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "player1",
+  "password": "player1-password"
+}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/me
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/me
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pool
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/firearms
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/firearms/Shotgun
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/Player/stats/me
+Accept: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/Player/stats/upgrades
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "statName": "MaxHealth"
+}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/weapon-upgrades/Shotgun
+Authorization: Bearer {{accessToken}}
+
+###
+
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/gacha/pull
+Authorization: Bearer {{accessToken}}
+
+###
