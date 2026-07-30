@@ -58,8 +58,8 @@ Description rules:
 Issue reference rules:
 
 - Put the related issue number in the commit body after a blank line
-- Use `Refs: #<issue-number>` when the commit is related to an issue without automatically closing it
-- Use `Closes: #<issue-number>` only when the user explicitly wants the commit or merged PR to close that issue
+- Write only `#<issue-number>` without prefixes such as `Refs:`, `Closes:`, or explanatory text
+- When multiple issue numbers are provided, write each `#<issue-number>` on its own line
 - Omit the issue reference body when no issue number was provided
 
 Example:
