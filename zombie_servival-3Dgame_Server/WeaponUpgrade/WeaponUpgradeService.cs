@@ -75,7 +75,7 @@ public sealed class WeaponUpgradeService(
 
         var upgradedStat = UpgradeCycle[(currentLevel - 1) % UpgradeCycle.Length];
         saveData.Gold -= upgradeCost;
-        saveData.UpdatedAtUtc = DateTime.UtcNow;
+        saveData.MarkChanged(DateTime.UtcNow);
         weaponState.WeaponLevel = currentLevel + 1;
         weaponState.WeaponName = firearm.Name;
         RecalculateStats(weaponState, firearm);
@@ -108,8 +108,13 @@ public sealed class WeaponUpgradeService(
         }
 
         var multiplier = Math.Pow(1 + _weaponUpgradeOptions.CostIncreaseRate, Math.Max(1, weaponLevel) - 1);
+        var cost = baseCost * multiplier;
+        if (!double.IsFinite(cost) || cost >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
 
-        return (int)Math.Ceiling(baseCost * multiplier);
+        return (int)Math.Ceiling(cost);
     }
 
     private void RecalculateStats(PlayerWeaponState weaponState, FirearmDefinition firearm)

@@ -70,14 +70,15 @@ public sealed class PlayerStatUpgradeService(
         }
 
         saveData.Gold -= upgradeCost;
-        saveData.UpdatedAtUtc = DateTime.UtcNow;
+        saveData.MarkChanged(DateTime.UtcNow);
         upgradeState.StatName = canonicalStatName;
         upgradeState.UpgradeLevel = currentUpgradeLevel + 1;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var nextUpgradeCost = upgradeState.UpgradeLevel >= _statUpgrades.MaxLevel ? 
-            0 : PlayerStatsCalculator.CalculateUpgradeCost(_statUpgrades, upgradeState.UpgradeLevel);
+        var nextUpgradeCost = upgradeState.UpgradeLevel >= _statUpgrades.MaxLevel
+            ? 0
+            : PlayerStatsCalculator.CalculateUpgradeCost(_statUpgrades, upgradeState.UpgradeLevel);
 
         return new PlayerStatUpgradeResult
         {

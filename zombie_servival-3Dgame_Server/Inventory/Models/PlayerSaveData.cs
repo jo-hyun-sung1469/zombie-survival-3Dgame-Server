@@ -8,6 +8,13 @@ public sealed class PlayerSaveData
     public string PlayerId { get; set; } = string.Empty;
     public int Gold { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+    public long Version { get; private set; }
     public List<PlayerWeaponState> WeaponStates { get; set; } = [];
     public List<PlayerStatUpgradeState> StatUpgradeStates { get; set; } = [];
+
+    public void MarkChanged(DateTime changedAtUtc)
+    {
+        UpdatedAtUtc = changedAtUtc;
+        Version = checked(Version + 1);
+    }
 }

@@ -59,7 +59,7 @@ public sealed class PlayerDefaultDataRepairService(
             return;
         }
 
-        saveData.UpdatedAtUtc = now;
+        saveData.MarkChanged(now);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 

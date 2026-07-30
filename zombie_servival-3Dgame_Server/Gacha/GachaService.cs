@@ -82,7 +82,7 @@ public sealed class GachaService(
 
         var reward = SelectReward(availableRewards);
         saveData.Gold -= _gachaOptions.PullCost;
-        saveData.UpdatedAtUtc = DateTime.UtcNow;
+        saveData.MarkChanged(DateTime.UtcNow);
 
         var weaponState = saveData.WeaponStates
             .SingleOrDefault(x => x.FirearmDefinitionId == reward.Id);

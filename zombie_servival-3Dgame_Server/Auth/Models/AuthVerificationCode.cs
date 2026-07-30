@@ -10,4 +10,10 @@ public sealed class AuthVerificationCode
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime? VerifiedAtUtc { get; set; }
     public DateTime? ConsumedAtUtc { get; set; }
+    public long Version { get; private set; }
+
+    public void MarkChanged()
+    {
+        Version = checked(Version + 1);
+    }
 }

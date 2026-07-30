@@ -10,7 +10,7 @@ public sealed class PlayerStatUpgradeResult
     public int CurrentGold { get; init; }
     public int CurrentUpgradeLevel { get; init; }
     public int MaxLevel { get; init; }
-    
+
     //여기서 이름이나 강화량을 반환
     public UpgradePlayerStatResponse? Response { get; init; }
 }

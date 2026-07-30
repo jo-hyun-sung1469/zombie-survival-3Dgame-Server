@@ -40,6 +40,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.AttemptCount).IsRequired();
             entity.Property(x => x.CreatedAtUtc).IsRequired();
             entity.Property(x => x.ExpiresAtUtc).IsRequired();
+            entity.Property(x => x.Version).IsConcurrencyToken().IsRequired();
         });
 
         modelBuilder.Entity<PlayerSaveData>(entity =>
@@ -49,6 +50,7 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.PlayerId).HasMaxLength(64).IsRequired();
             entity.Property(x => x.Gold).IsRequired();
             entity.Property(x => x.UpdatedAtUtc).IsRequired();
+            entity.Property(x => x.Version).IsConcurrencyToken().IsRequired();
 
             entity.HasMany(x => x.WeaponStates)
                 .WithOne(x => x.PlayerSaveData)
