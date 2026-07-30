@@ -137,7 +137,9 @@ if (string.IsNullOrWhiteSpace(connectionString))
         Database = databaseName,
         UserID = databaseUser,
         CharacterSet = "utf8mb4",
-        SslMode = databaseSslMode
+        SslMode = databaseSslMode,
+        AllowPublicKeyRetrieval =
+            IsInternalDatabaseHost(databaseHost) && databaseSslMode == MySqlSslMode.Disabled
     };
     databaseConnection["Pwd"] = databaseCredential;
     connectionString = databaseConnection.ConnectionString;

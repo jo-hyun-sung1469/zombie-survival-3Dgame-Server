@@ -235,3 +235,11 @@
 - 검증: .NET 10 Release 빌드, 7개 자동 테스트, EF pending-model 검사, NuGet 취약점 검사, Compose/훅/정적 검사를 수행했습니다.
 - 남은 사용자 결정: 없음.
 
+## 2026-07-31 - 내부 MySQL 8.4 인증 호환성 보완
+
+- 목적: TLS가 비활성화된 격리 Compose 네트워크에서 MySQL 8.4 `caching_sha2_password` 인증이 실패하는 문제를 해결했습니다.
+- 변경 영역: `Program.cs`, `deployment/README.md`.
+- 반영 내용: 호스트가 Compose 내부 서비스명 `mysql`이고 `SslMode=Disabled`인 경우에만 RSA 공개키 조회를 허용하고, 외부 DB 또는 TLS 연결에서는 허용하지 않도록 제한했습니다.
+- 검증: .NET 포맷 검사, 경고·오류 없는 빌드, 자동 테스트 7개, Docker 앱 이미지 빌드 및 Migration baseline 통합 테스트가 모두 통과했습니다.
+- 남은 사용자 결정: 없음.
+

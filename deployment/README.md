@@ -38,7 +38,7 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 S3 백업은 선택 사항입니다. 사용할 경우에만 비공개 S3 버킷, 기본 암호화, 30일 Lifecycle, 쓰기 권한을 준비하고 `BACKUP_ENABLED=true`로 설정합니다. 사용하지 않으면 `BACKUP_ENABLED=false`를 유지합니다.
 
 MySQL 공식 이미지가 최초 초기화 시 `MYSQL_USER` 계정을 만들고 `MYSQL_DATABASE`에 한정해 권한을 부여하므로, 앱 계정과 root 계정은 서로 다른 값을 사용해야 합니다. DB 비밀번호는 `app.env`의 `MYSQL_PASSWORD` 한 곳에만 저장되고 Compose가 앱·MySQL·백업 설정으로 전달합니다.
-Compose 내부의 `mysql` 서비스 연결은 격리된 backend 네트워크이므로 `DATABASE_SSL_MODE=Disabled`를 사용합니다. 외부 운영 DB에 연결할 때는 서버 인증서를 준비하고 `VerifyFull`을 사용해야 하며 `Preferred`는 허용되지 않습니다.
+Compose 내부의 `mysql` 서비스 연결은 격리된 backend 네트워크이므로 `DATABASE_SSL_MODE=Disabled`를 사용합니다. 이 경우 MySQL 8.4의 `caching_sha2_password` 인증을 위해 RSA 공개키 조회를 내부 `mysql` 호스트에만 허용합니다. 외부 운영 DB에 연결할 때는 공개키 조회가 허용되지 않으며, 서버 인증서를 준비하고 `VerifyFull`을 사용해야 합니다. `Preferred`는 허용되지 않습니다.
 
 ## GitHub 설정
 
