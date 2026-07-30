@@ -104,6 +104,9 @@ jobs:
       )
     runs-on: ubuntu-latest
     environment: ${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
+    concurrency:
+      group: deploy-${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
+      cancel-in-progress: false
     env:
       DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
       DEPLOY_BACKUP_IMAGE: ${{ needs.publish.outputs.backup_image }}

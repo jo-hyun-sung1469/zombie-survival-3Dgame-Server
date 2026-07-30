@@ -67,11 +67,15 @@ echo "EF Migration 적용 가능 여부를 확인합니다."
 bash deployment/scripts/check-migration-readiness.sh
 
 if [[ "$backup_enabled" == "true" ]]; then
-  if docker container inspect game-mysql-backup >/dev/null 2>&1; then
-    docker start game-mysql-backup >/dev/null
-  else
-    APP_IMAGE="$DEPLOY_APP_IMAGE" BACKUP_IMAGE="$DEPLOY_BACKUP_IMAGE" "${compose[@]}" up -d --no-deps backup
+  APP_IMAGE="$DEPLOY_APP_IMAGE" BACKUP_IMAGE="$DEPLOY_BACKUP_IMAGE" "${compose[@]}" up \
+    -d --no-deps --force-recreate backup
+  if ! docker container inspect game-mysql-backup >/dev/null 2>&1; then
+    echo "백업 컨테이너를 시작하지 못했습니다." >&2
+    exit 1
   fi
+elif docker container inspect game-mysql-backup >/dev/null 2>&1; then
+  echo "S3 백업이 비활성화되어 기존 백업 컨테이너를 제거합니다."
+  docker container remove --force game-mysql-backup >/dev/null
 fi
 
 previous_app_image="$(docker inspect -f '{{.Config.Image}}' game-server 2>/dev/null || true)"

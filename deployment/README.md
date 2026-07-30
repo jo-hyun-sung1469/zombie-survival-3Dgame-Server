@@ -25,6 +25,7 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 
 앱은 시작할 때 미적용 EF Migration을 실행하고 총기 카탈로그를 upsert합니다. `/health`는 인증 없이 MySQL 연결을 검사하며 정상일 때 200, 장애일 때 503을 반환합니다.
 앱 포트는 호스트의 `127.0.0.1`에만 바인딩됩니다. 인터넷에 공개할 때는 Nginx, Caddy 또는 로드 밸런서에서 TLS를 종료하고 `http://127.0.0.1:5000`으로 프록시해야 합니다. TLS 없이 앱 포트를 외부 인터페이스에 직접 공개하면 안 됩니다.
+운영 앱은 요청 제한의 클라이언트 구분을 위해 한 단계의 `X-Forwarded-For`/`X-Forwarded-Proto`를 신뢰합니다. 역방향 프록시는 외부에서 들어온 동일 헤더를 그대로 전달하지 말고 실제 연결 정보로 덮어써야 합니다.
 
 ## 사전 준비
 
@@ -37,6 +38,7 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 S3 백업은 선택 사항입니다. 사용할 경우에만 비공개 S3 버킷, 기본 암호화, 30일 Lifecycle, 쓰기 권한을 준비하고 `BACKUP_ENABLED=true`로 설정합니다. 사용하지 않으면 `BACKUP_ENABLED=false`를 유지합니다.
 
 MySQL 공식 이미지가 최초 초기화 시 `MYSQL_USER` 계정을 만들고 `MYSQL_DATABASE`에 한정해 권한을 부여하므로, 앱 계정과 root 계정은 서로 다른 값을 사용해야 합니다. DB 비밀번호는 `app.env`의 `MYSQL_PASSWORD` 한 곳에만 저장되고 Compose가 앱·MySQL·백업 설정으로 전달합니다.
+Compose 내부의 `mysql` 서비스 연결은 격리된 backend 네트워크이므로 `DATABASE_SSL_MODE=Disabled`를 사용합니다. 외부 운영 DB에 연결할 때는 서버 인증서를 준비하고 `VerifyFull`을 사용해야 하며 `Preferred`는 허용되지 않습니다.
 
 ## GitHub 설정
 
@@ -48,7 +50,7 @@ MySQL 공식 이미지가 최초 초기화 시 `MYSQL_USER` 계정을 만들고 
 - `GHCR_USERNAME`
 - `GHCR_PAT`
 
-CI의 빌드, 테스트, Compose 검증, 이미지 빌드를 모두 통과한 push만 CD 재사용 워크플로를 호출합니다. `main` push는 SHA와 `latest`, `develop` push는 SHA와 `develop` 태그를 발행합니다. Linux 서버가 준비되기 전에는 이미지 발행만 수행합니다. 서버가 준비된 후 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정하면 SSH 배포가 활성화됩니다. `develop`도 배포하려면 `DEVELOP_DEPLOY_ENABLED=true`를 추가합니다.
+CI의 빌드, 테스트, Compose 검증, 이미지 빌드를 모두 통과한 push만 CD 재사용 워크플로를 호출합니다. `main`, `release`, `develop`은 각각 SHA와 채널 태그를 발행합니다. Linux 서버가 준비되기 전에는 이미지 발행만 수행합니다. 서버가 준비된 후 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정하면 SSH 배포가 활성화됩니다. `develop`과 `release` 배포에는 `DEVELOP_DEPLOY_ENABLED=true`가 추가로 필요하며 같은 환경 배포는 동시에 실행되지 않습니다.
 
 CD는 다음 순서로 동작합니다.
 
@@ -59,7 +61,7 @@ CD는 다음 순서로 동작합니다.
 5. 앱 컨테이너만 SHA 이미지로 교체하고 최대 90초 동안 healthy 상태를 기다립니다.
 6. 실패하면 직전 앱 이미지로 복구하고 워크플로를 실패 처리합니다.
 
-백업 컨테이너는 `BACKUP_ENABLED=true`일 때만 생성되며 일반 앱 배포에서는 재생성하지 않습니다. 백업 이미지 자체를 갱신해야 할 때는 별도 유지보수 창에서 S3 쓰기 검사 후 백업 컨테이너만 교체합니다.
+백업 컨테이너는 `BACKUP_ENABLED=true`일 때 S3 쓰기 검증 후 지정된 이미지로 재생성됩니다. `false`로 변경하면 기존 백업 컨테이너를 제거해 선언한 상태와 실제 상태를 일치시킵니다.
 
 운영 상태를 확인할 때는 배포 성공 후 생성되는 `deployment.env`도 함께 사용합니다.
 

@@ -76,6 +76,7 @@ docker network create "$network_name" >/dev/null
 docker run --detach \
   --name "$mysql_container_name" \
   --network "$network_name" \
+  --network-alias mysql \
   -e "MYSQL_DATABASE=${mysql_database}" \
   -e "MYSQL_USER=${mysql_user}" \
   -e "MYSQL_PASSWORD=${mysql_password}" \
@@ -92,12 +93,19 @@ docker run --detach \
   --name "$app_container_name" \
   --network "$network_name" \
   -e ASPNETCORE_ENVIRONMENT=Production \
-  -e "Database__Host=${mysql_container_name}" \
+  -e Database__Host=mysql \
   -e Database__Port=3306 \
   -e "Database__Name=${mysql_database}" \
   -e "Database__User=${mysql_user}" \
   -e "Database__Credential=${mysql_password}" \
+  -e Database__SslMode=Disabled \
   -e Jwt__SecretKey=migration_test_jwt_secret_key_0123456789abcdef \
+  -e SmtpEmail__Host=smtp.example.invalid \
+  -e SmtpEmail__Port=587 \
+  -e SmtpEmail__EnableSsl=true \
+  -e SmtpEmail__UserName=migration-test \
+  -e SmtpEmail__Password=migration-test-password \
+  -e SmtpEmail__FromAddress=migration-test@example.invalid \
   zombie-survival-server:ci >/dev/null
 
 if ! wait_for_app; then
@@ -108,6 +116,9 @@ fi
 
 docker container rm --force "$app_container_name" >/dev/null
 mysql_exec --execute="DELETE FROM \`__EFMigrationsHistory\`;"
+mysql_exec --execute="
+  ALTER TABLE \`PlayerSaveData\` DROP COLUMN \`Version\`;
+  ALTER TABLE \`AuthVerificationCodes\` DROP COLUMN \`Version\`;"
 
 if MYSQL_CONTAINER_NAME="$mysql_container_name" \
   APP_ENV_FILE="$environment_file" \
@@ -148,6 +159,51 @@ history_count="$(mysql_exec --execute="
   WHERE \`MigrationId\` = '20260720014315_InitialCreate';")"
 if [[ "$history_count" != "1" ]]; then
   echo "baseline 완료 후 최초 Migration 이력이 없습니다." >&2
+  exit 1
+fi
+
+docker run --detach \
+  --name "$app_container_name" \
+  --network "$network_name" \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e Database__Host=mysql \
+  -e Database__Port=3306 \
+  -e "Database__Name=${mysql_database}" \
+  -e "Database__User=${mysql_user}" \
+  -e "Database__Credential=${mysql_password}" \
+  -e Database__SslMode=Disabled \
+  -e Jwt__SecretKey=migration_test_jwt_secret_key_0123456789abcdef \
+  -e SmtpEmail__Host=smtp.example.invalid \
+  -e SmtpEmail__Port=587 \
+  -e SmtpEmail__EnableSsl=true \
+  -e SmtpEmail__UserName=migration-test \
+  -e SmtpEmail__Password=migration-test-password \
+  -e SmtpEmail__FromAddress=migration-test@example.invalid \
+  zombie-survival-server:ci >/dev/null
+
+if ! wait_for_app; then
+  docker logs "$app_container_name" >&2 || true
+  echo "baseline 이후 후속 Migration을 적용하지 못했습니다." >&2
+  exit 1
+fi
+
+concurrency_history_count="$(mysql_exec --execute="
+  SELECT COUNT(*)
+  FROM \`__EFMigrationsHistory\`
+  WHERE \`MigrationId\` LIKE '%_AddConcurrencyVersions';")"
+if [[ "$concurrency_history_count" != "1" ]]; then
+  echo "동시성 Migration 이력이 없습니다." >&2
+  exit 1
+fi
+
+version_column_count="$(mysql_exec --execute="
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND column_name = 'Version'
+    AND table_name IN ('PlayerSaveData', 'AuthVerificationCodes');")"
+if [[ "$version_column_count" != "2" ]]; then
+  echo "동시성 Version 컬럼이 모두 생성되지 않았습니다." >&2
   exit 1
 fi
 
