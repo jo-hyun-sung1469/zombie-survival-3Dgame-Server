@@ -5,18 +5,16 @@ description: Player save-data behavior for this project. Use when changing playe
 
 # Player Save Flow
 
-## Current Endpoints
+## Current Endpoint
 
-- `POST /api/player-data/save`
 - `GET /api/player-data/me`
 
-Both endpoints require authorization and identify the player from the JWT `userId` claim.
+The endpoint requires authorization and identifies the player from the JWT `userId` claim.
 
 ## Request And Response Model
 
-- Request DTO: `SavePlayerDataRequest`
 - Response DTO: `PlayerSaveResponse`
-- Core fields today:
+- Core response fields:
   - `Gold`
   - `WeaponStates`
   - `UpdatedAtUtc`
@@ -27,22 +25,15 @@ Both endpoints require authorization and identify the player from the JWT `userI
 - `PlayerWeaponState` stores weapon ownership as child rows
 - `PlayerId` is unique
 
-## Save Semantics
+## Server Authority
 
-Current save behavior is key-based upsert:
-
-1. Load the player's save row with `WeaponStates`
-2. Create the root save row if missing
-3. Update scalar fields such as `Gold`
-4. Update existing weapon rows by weapon name
-5. Add newly requested weapon rows
-6. Remove rows omitted from the incoming dictionary
-
-Preserve this behavior unless the task explicitly asks for patch semantics.
+- Do not accept gold, weapon ownership, weapon levels, or stat levels from a client save request.
+- Gold changes only through server-owned reward and spending rules.
+- Weapon ownership changes only through server-owned defaults, gacha, or another authoritative grant flow.
+- Player state mutations must increment the save row concurrency version before persistence.
 
 ## Mapping Rules
 
-- API request uses `Dictionary<string, bool>`
 - Persistence uses a list of `PlayerWeaponState`
 - API response sorts weapon names case-insensitively before building the dictionary
 
@@ -50,7 +41,6 @@ When changing this flow, keep request/response shape, persistence shape, and sor
 
 ## Validation Rules
 
-- `Gold` is non-negative
-- `WeaponStates` is required
-- Weapon names must exist in the configured firearm catalog
+- Gold, costs, and owned states are calculated server-side
+- Weapon names used by mutation endpoints must exist in the server firearm catalog
 - Do not trust a client-supplied player identifier when the authenticated claim already provides it

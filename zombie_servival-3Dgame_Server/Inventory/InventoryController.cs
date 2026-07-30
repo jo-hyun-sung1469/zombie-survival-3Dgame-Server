@@ -10,21 +10,6 @@ namespace zombie_survival_3Dgame_Server.Inventory;
 [Authorize]
 public sealed class InventoryController(IInventoryService inventoryService) : ControllerBase
 {
-    [HttpPost("save")]
-    public async Task<ActionResult<PlayerSaveResponse>> SaveAsync(
-        [FromBody] SavePlayerDataRequest request,
-        CancellationToken cancellationToken)
-    {
-        var playerId = User.FindFirst("userId")?.Value;
-        if (string.IsNullOrWhiteSpace(playerId))
-        {
-            return ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Token does not contain a valid user id.");
-        }
-
-        var savedData = await inventoryService.SaveAsync(playerId, request, cancellationToken);
-        return Ok(savedData);
-    }
-
     [HttpGet("me")]
     public async Task<ActionResult<PlayerSaveResponse>> GetMyDataAsync(CancellationToken cancellationToken)
     {

@@ -47,21 +47,6 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
-POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/save
-Content-Type: application/json
-Authorization: Bearer {{accessToken}}
-
-{
-  "gold": 1500,
-  "weaponStates": {
-    "Shotgun": false,
-    "SMG": true,
-    "AssaultRifle": true
-  }
-}
-
-###
-
 GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/me
 Accept: application/json
 Authorization: Bearer {{accessToken}}
@@ -109,19 +94,6 @@ Authorization: Bearer {{accessToken}}
 
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/weapon-upgrades/Shotgun
 Authorization: Bearer {{accessToken}}
-
-###
-
-POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/player-data/save
-Content-Type: application/json
-Authorization: Bearer {{accessToken}}
-
-{
-  "gold": 400,
-  "weaponStates": {
-    "Shotgun": true
-  }
-}
 
 ###
 
