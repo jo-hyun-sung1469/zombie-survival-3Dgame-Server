@@ -2,6 +2,14 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-07-31 - Tailscale OAuth 기반 SSH 배포 연결
+
+- 목적: 공개 SSH 포트를 열지 않고 GitHub Actions 실행기가 Tailscale을 통해 개인 Linux 배포 호스트에 접근하도록 구성했습니다.
+- 변경 영역: `.github/workflows/CD.yml`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 반영 내용: 배포 파일 전송 전에 Tailscale OAuth client로 `tag:ci` 임시 노드를 생성하고, `SSH_HOST` 연결 확인이 완료된 뒤 SCP와 SSH 배포를 실행하도록 했습니다.
+- 검증: 워크플로 diff와 YAML 구조를 정적으로 확인합니다. 실제 연결 검증은 Tailscale OAuth client 및 GitHub Secrets 등록 후 첫 배포에서 수행해야 합니다.
+- 남은 사용자 결정: Tailscale OAuth client를 `auth_keys` 쓰기 권한과 `tag:ci`로 생성하고, GitHub에 `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`을 등록해야 합니다.
+
 ## 2026-06-27 - 기능 단위 커밋 세분화 규칙 강화
 
 - 목적: 기능 개발 변경사항을 한 번에 묶지 않고 DTO, 모델/엔티티, 영속성, 설정, 서비스 로직, 컨트롤러, 검증/문서 단위로 세분화해 커밋하도록 커밋 스킬과 git 전담 에이전트 지침을 강화했습니다.
