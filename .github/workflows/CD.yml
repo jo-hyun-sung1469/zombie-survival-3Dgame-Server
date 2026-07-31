@@ -1,20 +1,17 @@
 name: CD
 
 on:
-  workflow_call:
-    inputs:
-      source_sha:
-        description: CI 검증을 통과한 commit SHA
-        required: true
-        type: string
-      source_branch:
-        description: CI 검증을 통과한 브랜치
-        required: true
-        type: string
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, release, develop]
 
 jobs:
   publish:
     name: Publish container images
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,14 +26,14 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Resolve image names and tags
         id: images
         shell: bash
         env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
           case "$SOURCE_BRANCH" in

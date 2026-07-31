@@ -59,16 +59,3 @@ jobs:
 
       - name: Build linux/amd64 backup image
         run: docker build --platform linux/amd64 --tag zombie-survival-mysql-backup:ci deployment/backup
-
-  publish-and-deploy:
-    name: Publish and deploy after CI
-    if: github.event_name == 'push'
-    needs: build-and-test
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/CD.yml
-    with:
-      source_sha: ${{ github.sha }}
-      source_branch: ${{ github.ref_name }}
-    secrets: inherit

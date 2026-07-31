@@ -2,6 +2,14 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-08-01 - CI/CD 독립 워크플로 분리
+
+- 목적: CI와 CD를 GitHub Actions 목록에서 각각 확인할 수 있도록 분리하면서, 성공한 CI 이후에만 자동 배포되도록 구성했습니다.
+- 변경 영역: `.github/workflows/CI.yml`, `.github/workflows/CD.yml`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 반영 내용: CI의 재사용 CD 호출 작업을 제거하고, CD가 `main`, `release`, `develop`의 성공한 push CI 완료를 `workflow_run`으로 감지해 별도 실행되도록 했습니다. PR·수동 실행에서 발생한 CI 완료는 배포하지 않습니다.
+- 검증: `git diff --check`와 정적 검색으로 트리거·이벤트·브랜치·commit SHA 전달 조건 및 이전 재사용 워크플로 참조 제거 여부를 확인합니다.
+- 남은 사용자 결정: `workflow_run` 트리거가 동작하도록 변경된 CD 워크플로를 GitHub 기본 브랜치 `main`에 반영해야 합니다.
+
 ## 2026-07-31 - Tailscale OAuth 기반 SSH 배포 연결
 
 - 목적: 공개 SSH 포트를 열지 않고 GitHub Actions 실행기가 Tailscale을 통해 개인 Linux 배포 호스트에 접근하도록 구성했습니다.
