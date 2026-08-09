@@ -1,11 +1,10 @@
-name: CI
+name: Main CI
 
 on:
   push:
-    branches: [main, release, develop]
+    branches: [main]
   pull_request:
-    branches: [main, release, develop]
-  workflow_dispatch:
+    branches: [main]
 
 env:
   DOTNET_VERSION: 10.0.x
@@ -15,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  ci:
     name: Build, test, and validate containers
     runs-on: ubuntu-latest
 

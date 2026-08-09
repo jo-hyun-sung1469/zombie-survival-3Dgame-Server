@@ -2,6 +2,14 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-08-02 - 운영·개발 CI/CD 독립 분리
+
+- 목적: 운영 배포와 개발 배포 검증의 책임을 분리하고, 각 CI와 CD를 GitHub Actions에서 독립 실행 이력으로 확인할 수 있도록 구성했습니다.
+- 변경 영역: `.github/workflows/Main-CI.yml`, `.github/workflows/Main-CD.yml`, `.github/workflows/Development-CI.yml`, `.github/workflows/Development-CD.yml`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 반영 내용: `main` 전용 CI 성공 push만 운영 이미지 게시와 Linux 호스트 배포로 연결했습니다. `develop`·`release` 전용 CI가 성공하면 개발 CD가 별도 러너에서 앱·MySQL 이미지를 빌드하고 임시 Docker Compose 환경을 기동해 `/health`를 확인한 뒤 컨테이너와 볼륨을 제거하며, GHCR 게시나 원격 서버 배포는 수행하지 않습니다.
+- 검증: 워크플로 트리거·이름 연결·성공 조건·검증 완료 commit SHA checkout·운영 배포 제한을 정적으로 확인하고, `git diff --check`, .NET Release 빌드·테스트, Docker Compose 설정 렌더링과 임시 배포 헬스체크를 수행합니다.
+- 남은 사용자 결정: `workflow_run` 기반 Main CD와 Development CD가 실행되도록 네 워크플로를 GitHub 기본 브랜치 `main`에 반영해야 합니다.
+
 ## 2026-08-01 - CI/CD 독립 워크플로 분리
 
 - 목적: CI와 CD를 GitHub Actions 목록에서 각각 확인할 수 있도록 분리하면서, 성공한 CI 이후에만 자동 배포되도록 구성했습니다.

@@ -1,0 +1,61 @@
+name: Development CD
+
+on:
+  workflow_run:
+    workflows: [Development CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  deployment-validation:
+    name: Validate disposable deployment
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      MYSQL_DATABASE: zombie_survival_ci
+      MYSQL_USER: zombie_ci
+      MYSQL_PASSWORD: development-ci-mysql-password
+      MYSQL_ROOT_PASSWORD: development-ci-root-password
+      DATABASE_SSL_MODE: Disabled
+      JWT_SECRET_KEY: development_ci_jwt_secret_key_0123456789abcdef
+      SMTP_HOST: smtp.example.invalid
+      SMTP_PORT: 587
+      SMTP_ENABLE_SSL: true
+      SMTP_USERNAME: development-ci
+      SMTP_PASSWORD: development-ci-smtp-password
+      SMTP_FROM_ADDRESS: development-ci@example.invalid
+      SMTP_FROM_NAME: Zombie Survival CI
+      ASPNETCORE_ENVIRONMENT: Production
+      APP_HOST_PORT: 5000
+      APP_IMAGE: zombie-survival-server:deployment-validation
+      BACKUP_IMAGE: zombie-survival-mysql-backup:deployment-validation
+
+    steps:
+      - name: Checkout CI-validated source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Validate deployment configuration
+        run: docker compose --env-file app.env.example config --quiet
+
+      - name: Build deployment images
+        run: docker compose --env-file app.env.example build app backup
+
+      - name: Start disposable deployment
+        run: docker compose --env-file app.env.example up --detach --wait --wait-timeout 180 mysql app
+
+      - name: Verify application health endpoint
+        run: |
+          docker compose --env-file app.env.example ps
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 http://127.0.0.1:5000/health
+
+      - name: Print deployment logs on failure
+        if: failure()
+        run: docker compose --env-file app.env.example logs --no-color --tail 200 mysql app
+
+      - name: Remove disposable deployment
+        if: always()
+        run: docker compose --env-file app.env.example down --volumes --remove-orphans

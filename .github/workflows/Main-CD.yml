@@ -1,17 +1,20 @@
-name: CD
+name: Main CD
 
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [Main CI]
     types: [completed]
-    branches: [main, release, develop]
+
+permissions:
+  contents: read
 
 jobs:
   publish:
-    name: Publish container images
+    name: Publish production container images
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,7 +23,6 @@ jobs:
       app_image: ${{ steps.images.outputs.app_image }}
       backup_image: ${{ steps.images.outputs.backup_image }}
       source_sha: ${{ steps.images.outputs.source_sha }}
-      source_branch: ${{ steps.images.outputs.source_branch }}
 
     steps:
       - name: Checkout source code
@@ -28,32 +30,18 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Resolve image names and tags
+      - name: Resolve production image names and tags
         id: images
         shell: bash
         env:
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
-          case "$SOURCE_BRANCH" in
-            main)
-              channel_tag="latest"
-              ;;
-            release)
-              channel_tag="release"
-              ;;
-            *)
-              channel_tag="develop"
-              ;;
-          esac
-
           echo "app_image=${image_root}:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
           echo "backup_image=${image_root}-mysql-backup:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
-          echo "app_tags=${image_root}:${SOURCE_SHA},${image_root}:${channel_tag}" >> "$GITHUB_OUTPUT"
-          echo "backup_tags=${image_root}-mysql-backup:${SOURCE_SHA},${image_root}-mysql-backup:${channel_tag}" >> "$GITHUB_OUTPUT"
+          echo "app_tags=${image_root}:${SOURCE_SHA},${image_root}:latest" >> "$GITHUB_OUTPUT"
+          echo "backup_tags=${image_root}-mysql-backup:${SOURCE_SHA},${image_root}-mysql-backup:latest" >> "$GITHUB_OUTPUT"
           echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
-          echo "source_branch=${SOURCE_BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -88,21 +76,13 @@ jobs:
           cache-to: type=gha,mode=max,scope=backup
 
   deploy:
-    name: Deploy to Linux host
+    name: Deploy to production Linux host
+    if: vars.SSH_DEPLOY_ENABLED == 'true'
     needs: publish
-    if: >-
-      vars.SSH_DEPLOY_ENABLED == 'true' &&
-      (
-        needs.publish.outputs.source_branch == 'main' ||
-        (
-          (needs.publish.outputs.source_branch == 'develop' || needs.publish.outputs.source_branch == 'release') &&
-          vars.DEVELOP_DEPLOY_ENABLED == 'true'
-        )
-      )
     runs-on: ubuntu-latest
-    environment: ${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
+    environment: production
     concurrency:
-      group: deploy-${{ needs.publish.outputs.source_branch == 'main' && 'production' || 'development' }}
+      group: deploy-production
       cancel-in-progress: false
     env:
       DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
