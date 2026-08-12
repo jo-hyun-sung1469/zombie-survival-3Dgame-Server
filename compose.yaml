@@ -63,7 +63,34 @@ services:
       retries: 6
       start_period: 20s
     networks:
+      - frontend
       - backend
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    container_name: game-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-zombie-survival-3d-game.duckdns.org}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deployment/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      - frontend
 
   backup:
     profiles: ["backup"]
@@ -97,7 +124,13 @@ volumes:
     name: zombie_survival_mysql_data
   backup_tmp:
     name: zombie_survival_mysql_backup_tmp
+  caddy_data:
+    name: zombie_survival_caddy_data
+  caddy_config:
+    name: zombie_survival_caddy_config
 
 networks:
+  frontend:
+    name: zombie_survival_frontend
   backend:
     name: zombie_survival_backend

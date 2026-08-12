@@ -47,6 +47,14 @@ jobs:
           export SMTP_FROM_ADDRESS="compose-check@example.invalid"
           docker compose --env-file app.env.example config --quiet
 
+      - name: Validate Caddy configuration
+        run: |
+          docker run --rm \
+            --env APP_DOMAIN=zombie-survival-3d-game.duckdns.org \
+            --volume "${PWD}/deployment/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.11.4-alpine \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
       - name: Validate deployment shell scripts
         run: bash -n deployment/backup/*.sh deployment/scripts/*.sh
 
