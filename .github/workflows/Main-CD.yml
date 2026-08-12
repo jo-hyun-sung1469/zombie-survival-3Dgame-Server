@@ -1,0 +1,126 @@
+name: Main CD
+
+on:
+  workflow_run:
+    workflows: [Main CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish production container images
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    outputs:
+      app_image: ${{ steps.images.outputs.app_image }}
+      backup_image: ${{ steps.images.outputs.backup_image }}
+      source_sha: ${{ steps.images.outputs.source_sha }}
+
+    steps:
+      - name: Download CI-validated production images
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: production-images-${{ github.event.workflow_run.head_sha }}
+          path: deployment-images
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Load CI-validated production images
+        run: docker load --input deployment-images/production-images.tar
+
+      - name: Resolve production image names and tags
+        id: images
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "app_image=${image_root}:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backup_image=${image_root}-mysql-backup:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "app_tags=${image_root}:${SOURCE_SHA},${image_root}:latest" >> "$GITHUB_OUTPUT"
+          echo "backup_tags=${image_root}-mysql-backup:${SOURCE_SHA},${image_root}-mysql-backup:latest" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push CI-validated production images
+        shell: bash
+        env:
+          APP_TAGS: ${{ steps.images.outputs.app_tags }}
+          BACKUP_TAGS: ${{ steps.images.outputs.backup_tags }}
+        run: |
+          IFS=',' read -r app_sha_tag app_channel_tag <<< "$APP_TAGS"
+          IFS=',' read -r backup_sha_tag backup_channel_tag <<< "$BACKUP_TAGS"
+
+          docker tag zombie-survival-server:ci "$app_sha_tag"
+          docker tag zombie-survival-server:ci "$app_channel_tag"
+          docker tag zombie-survival-mysql-backup:ci "$backup_sha_tag"
+          docker tag zombie-survival-mysql-backup:ci "$backup_channel_tag"
+
+          docker push "$app_sha_tag"
+          docker push "$app_channel_tag"
+          docker push "$backup_sha_tag"
+          docker push "$backup_channel_tag"
+
+  deploy:
+    name: Deploy to production Linux host
+    if: vars.SSH_DEPLOY_ENABLED == 'true'
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
+      DEPLOY_BACKUP_IMAGE: ${{ needs.publish.outputs.backup_image }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.publish.outputs.source_sha }}
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.SSH_HOST }}
+
+      - name: Upload deployment files
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: compose.yaml,deployment
+          target: ~/zombie-survival-server
+
+      - name: Deploy app with health rollback
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DEPLOY_APP_IMAGE,DEPLOY_BACKUP_IMAGE,GHCR_USERNAME,GHCR_PAT
+          script: |
+            cd ~/zombie-survival-server
+            bash deployment/scripts/deploy.sh
