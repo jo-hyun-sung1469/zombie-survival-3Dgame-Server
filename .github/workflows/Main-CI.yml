@@ -58,3 +58,22 @@ jobs:
 
       - name: Build linux/amd64 backup image
         run: docker build --platform linux/amd64 --tag zombie-survival-mysql-backup:ci deployment/backup
+
+      - name: Package CI-validated production images
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p deployment-images
+          docker save \
+            --output deployment-images/production-images.tar \
+            zombie-survival-server:ci \
+            zombie-survival-mysql-backup:ci
+
+      - name: Upload CI-validated production images
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-images-${{ github.sha }}
+          path: deployment-images/production-images.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

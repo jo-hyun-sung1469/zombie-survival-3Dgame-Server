@@ -1,9 +1,10 @@
 name: Development CD
 
 on:
-  workflow_run:
-    workflows: [Development CI]
-    types: [completed]
+  push:
+    branches: [develop, release]
+  pull_request:
+    branches: [develop, release]
 
 permissions:
   contents: read
@@ -11,8 +12,11 @@ permissions:
 jobs:
   deployment-validation:
     name: Validate disposable deployment
-    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: development-deployment-validation-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     env:
       MYSQL_DATABASE: zombie_survival_ci
       MYSQL_USER: zombie_ci
@@ -33,10 +37,10 @@ jobs:
       BACKUP_IMAGE: zombie-survival-mysql-backup:deployment-validation
 
     steps:
-      - name: Checkout CI-validated source
+      - name: Checkout source code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
       - name: Validate deployment configuration
         run: docker compose --env-file app.env.example config --quiet
