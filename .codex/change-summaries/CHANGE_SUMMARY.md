@@ -277,3 +277,11 @@
   - 개발 검증과 실제 운영 배포의 역할, 필요한 production Secret과 배포 활성화 조건을 현재 워크플로에 맞춰 문서화했습니다.
 - 검증: Docker Compose 렌더링, 외부 Action 40자리 SHA 고정 검사와 `git diff --check`가 통과했고, .NET 10 Release 빌드는 경고·오류 없이 완료됐으며 자동 테스트 7개가 모두 통과했습니다. 로컬 Docker 데몬 권한이 없어 이미지 아티팩트의 실제 save/load는 GitHub Actions에서 최종 확인해야 합니다.
 - 남은 사용자 결정: 없음.
+
+## 2026-08-12 - DuckDNS HTTPS 공개 접속 구성
+
+- 목적: 개인 Ubuntu 서버의 게임 API를 DuckDNS 도메인과 HTTPS로 다른 컴퓨터 및 게임 클라이언트에서 안전하게 사용할 수 있도록 구성했습니다.
+- 변경 영역: `compose.yaml`, `app.env.example`, `deployment/caddy/Caddyfile`, `deployment/scripts/deploy.sh`, GitHub CI/CD 워크플로, `deployment/README.md`.
+- 반영 내용: Caddy 역방향 프록시와 인증서 영구 볼륨, 자동 배포·상태 확인을 추가하고 개발 CD에서 HTTP 프록시까지 일회성 검증하도록 했습니다. `zombie-survival-3d-game.duckdns.org`의 IP 갱신, Ubuntu 방화벽, 공유기 포트포워딩 및 외부 검증 절차도 문서화했습니다.
+- 검증: Docker Compose 렌더링, 공식 Caddy 이미지의 Caddyfile 검증, Ubuntu 기준 Bash 구문, 외부 Action SHA 고정 및 `git diff --check`가 통과했습니다. .NET 10 Release 빌드는 경고·오류 없이 완료됐고 자동 테스트 7개가 모두 통과했습니다. 실제 인증서 발급과 외부 HTTPS 접속은 포트포워딩 후 확인해야 합니다.
+- 남은 사용자 결정: 공유기 TCP 80/443 포트포워딩과 DuckDNS 토큰 등록은 개인 네트워크에서 직접 설정해야 합니다.
