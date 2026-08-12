@@ -2,7 +2,7 @@
 
 ## 현재 운영 전략
 
-현재 Windows PC의 Docker Desktop에서 앱과 MySQL을 먼저 실행하고, 이후 개인 Linux 서버가 준비되면 같은 Compose 구성을 SSH로 배포합니다. AWS 계정은 필요하지 않으며 S3 백업은 기본적으로 비활성화되어 있습니다.
+Windows PC의 Docker Desktop에서 앱과 MySQL을 로컬 검증하고, 개인 Ubuntu 서버에는 같은 Compose 구성을 SSH로 배포합니다. AWS 계정은 필요하지 않으며 S3 백업은 기본적으로 비활성화되어 있습니다.
 
 ### 로컬 실행
 
@@ -19,12 +19,14 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 
 - 앱: .NET 10, linux/amd64, 비루트 UID 1654, 포트 8080
 - DB: `mysql:8.4.10`, 외부 3306 포트 미공개
+- 공개 프록시: `caddy:2.11.4-alpine`, TCP 80/443 및 HTTP/3용 UDP 443
 - 백업: MySQL 8.4.10 클라이언트와 AWS CLI 2.27.49
 - 영구 데이터: `zombie_survival_mysql_data` named volume
+- TLS 인증서 및 Caddy 상태: `zombie_survival_caddy_data`, `zombie_survival_caddy_config` named volume
 - 임시 백업: `zombie_survival_mysql_backup_tmp` named volume, 생성 후 2일이 지난 dump 삭제
 
 앱은 시작할 때 미적용 EF Migration을 실행하고 총기 카탈로그를 upsert합니다. `/health`는 인증 없이 MySQL 연결을 검사하며 정상일 때 200, 장애일 때 503을 반환합니다.
-앱 포트는 호스트의 `127.0.0.1`에만 바인딩됩니다. 인터넷에 공개할 때는 Nginx, Caddy 또는 로드 밸런서에서 TLS를 종료하고 `http://127.0.0.1:5000`으로 프록시해야 합니다. TLS 없이 앱 포트를 외부 인터페이스에 직접 공개하면 안 됩니다.
+앱 포트는 호스트의 `127.0.0.1`에만 바인딩되고, 같은 Compose의 Caddy만 Docker backend 네트워크의 `app:8080`으로 접근합니다. Caddy는 `APP_DOMAIN`의 인증서를 자동 발급·갱신하고 HTTP를 HTTPS로 전환합니다. TLS 없이 앱 포트를 외부 인터페이스에 직접 공개하면 안 됩니다.
 운영 앱은 요청 제한의 클라이언트 구분을 위해 한 단계의 `X-Forwarded-For`/`X-Forwarded-Proto`를 신뢰합니다. 역방향 프록시는 외부에서 들어온 동일 헤더를 그대로 전달하지 말고 실제 연결 정보로 덮어써야 합니다.
 
 ## 사전 준비
@@ -33,7 +35,57 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 2. `~/zombie-survival-server` 디렉터리를 만듭니다.
 3. `app.env.example`을 참고해 Linux 서버에 `~/zombie-survival-server/app.env`를 만들고 `chmod 600 app.env`를 적용합니다. `ASPNETCORE_ENVIRONMENT=Production`을 유지합니다.
 4. GitHub Actions에서 접근할 수 있도록 Linux 서버의 SSH 접속 주소와 키를 준비합니다.
-5. 외부 API 접속이 필요하면 TLS 인증서가 적용된 역방향 프록시를 구성합니다. 프록시만 443 포트를 공개하고 앱의 5000 포트는 공개하지 않습니다.
+5. Ubuntu 방화벽과 공유기에서 Caddy용 TCP 80/443을 공개합니다. HTTP/3을 사용할 경우 UDP 443도 공개하고, 앱의 5000 포트와 MySQL 3306은 공개하지 않습니다.
+
+## DuckDNS 공개 접속 설정
+
+운영 API 주소는 `https://zombie-survival-3d-game.duckdns.org`입니다. DuckDNS의 `zombie-survival-3d-game` 도메인이 현재 집의 공인 IPv4를 가리켜야 하며, `app.env`에는 다음 값을 유지합니다.
+
+```dotenv
+APP_DOMAIN=zombie-survival-3d-game.duckdns.org
+```
+
+게임 클라이언트의 로그인 요청 URL은 다음과 같습니다.
+
+```text
+POST https://zombie-survival-3d-game.duckdns.org/api/auth/login
+```
+
+Ubuntu 서버에서 공인 IPv4와 DuckDNS 응답을 비교합니다.
+
+```bash
+curl -4 https://api.ipify.org
+getent ahostsv4 zombie-survival-3d-game.duckdns.org
+```
+
+공인 IP가 바뀌는 가정용 회선이라면 DuckDNS 토큰을 Git 저장소나 `app.env`에 넣지 말고 Ubuntu 사용자 홈의 비공개 파일에 저장합니다.
+
+```bash
+mkdir -p ~/.config/duckdns
+chmod 700 ~/.config/duckdns
+printf '%s\n' 'DUCKDNS_TOKEN=DuckDNS에서_발급받은_토큰' > ~/.config/duckdns/credentials
+chmod 600 ~/.config/duckdns/credentials
+```
+
+다음 cron 항목으로 5분마다 공인 IPv4를 갱신할 수 있습니다. `whoami`로 확인한 실제 사용자 경로로 `/home/사용자명`을 바꿉니다.
+
+```cron
+*/5 * * * * . /home/사용자명/.config/duckdns/credentials; curl --fail --silent --show-error "https://www.duckdns.org/update?domains=zombie-survival-3d-game&token=${DUCKDNS_TOKEN}&ip=" >/dev/null
+```
+
+Ubuntu 방화벽을 사용한다면 SSH 접속을 먼저 허용한 뒤 HTTPS 포트를 엽니다.
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 443/udp
+sudo ufw enable
+```
+
+공유기 관리 화면에서는 TCP 80과 TCP 443을 Ubuntu 서버의 고정 LAN IP로 포트포워딩합니다. HTTP/3을 사용할 경우 UDP 443도 같은 서버로 전달합니다. 공유기의 WAN IP가 `curl -4 https://api.ipify.org` 결과와 다르거나 WAN IP가 `100.64.0.0/10`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` 범위라면 CGNAT 또는 이중 공유기일 수 있어 ISP 공인 IPv4나 추가 상위 공유기 설정이 필요합니다.
+
+Caddy가 인증서를 처음 발급하려면 DuckDNS가 올바른 공인 IP를 가리키고 외부 인터넷에서 TCP 80 또는 443이 서버까지 도달해야 합니다. 서버와 같은 LAN에서는 공유기의 NAT loopback 지원 여부 때문에 도메인 접속이 실패할 수 있으므로, 최초 확인은 휴대전화 Wi-Fi를 끈 LTE/5G에서 수행합니다.
 
 S3 백업은 선택 사항입니다. 사용할 경우에만 비공개 S3 버킷, 기본 암호화, 30일 Lifecycle, 쓰기 권한을 준비하고 `BACKUP_ENABLED=true`로 설정합니다. 사용하지 않으면 `BACKUP_ENABLED=false`를 유지합니다.
 
@@ -68,7 +120,8 @@ Main CD의 원격 배포는 다음 순서로 동작합니다.
 3. 기존 MySQL 컨테이너와 named volume을 그대로 유지합니다.
 4. 기존 테이블이 있으면서 최초 EF Migration 이력이 없는 DB인지 검사하고, 해당하면 기존 앱을 유지한 채 배포를 중단합니다.
 5. 앱 컨테이너만 SHA 이미지로 교체하고 최대 90초 동안 healthy 상태를 기다립니다.
-6. 실패하면 직전 앱 이미지로 복구하고 워크플로를 실패 처리합니다.
+6. 앱이 정상이면 Caddy를 재생성하고 최대 60초 동안 프록시 상태를 확인합니다.
+7. 앱 실패 시 직전 앱 이미지로 복구하고 워크플로를 실패 처리합니다.
 
 백업 컨테이너는 `BACKUP_ENABLED=true`일 때 S3 쓰기 검증 후 지정된 이미지로 재생성됩니다. `false`로 변경하면 기존 백업 컨테이너를 제거해 선언한 상태와 실제 상태를 일치시킵니다.
 
@@ -77,6 +130,7 @@ Main CD의 원격 배포는 다음 순서로 동작합니다.
 ```bash
 docker compose --env-file app.env --env-file deployment.env ps
 curl --fail http://127.0.0.1:5000/health
+curl --fail https://zombie-survival-3d-game.duckdns.org/health
 ```
 
 CD와 운영 절차에서 `docker compose down -v`를 실행하지 마세요. 이 명령은 영구 MySQL 볼륨까지 삭제합니다.
