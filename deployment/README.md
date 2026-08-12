@@ -42,17 +42,26 @@ Compose 내부의 `mysql` 서비스 연결은 격리된 backend 네트워크이�
 
 ## GitHub 설정
 
-`production` Environment에 다음 Secret을 등록합니다. `develop` 배포도 사용할 경우 `development` Environment에도 별도의 개발 서버용 값을 등록합니다.
+실제 Linux 서버 배포에 사용하는 `production` Environment에 다음 Secret을 등록합니다.
 
 - `SSH_HOST`
 - `SSH_USER`
 - `SSH_KEY`
 - `GHCR_USERNAME`
 - `GHCR_PAT`
+- `TS_OAUTH_CLIENT_ID`
+- `TS_OAUTH_SECRET`
 
-CI의 빌드, 테스트, Compose 검증, 이미지 빌드를 모두 통과한 push만 CD 재사용 워크플로를 호출합니다. `main`, `release`, `develop`은 각각 SHA와 채널 태그를 발행합니다. Linux 서버가 준비되기 전에는 이미지 발행만 수행합니다. 서버가 준비된 후 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정하면 SSH 배포가 활성화됩니다. `develop`과 `release` 배포에는 `DEVELOP_DEPLOY_ENABLED=true`가 추가로 필요하며 같은 환경 배포는 동시에 실행되지 않습니다.
+개발용과 운영용 CI/CD는 다음 역할로 분리됩니다.
 
-CD는 다음 순서로 동작합니다.
+- `Development CI`: `develop`·`release` 대상 push와 PR에서 .NET 빌드, 테스트, Compose·배포 스크립트, Migration baseline 및 컨테이너 빌드를 검증합니다.
+- `Development CD`: `develop`·`release` 대상 push와 PR에서 별도의 일회성 MySQL·앱 환경을 직접 실행하고 `/health`를 검사한 뒤 모든 컨테이너와 volume을 제거합니다. GHCR 이미지 발행, 운영 Secret 사용, 원격 서버 배포는 하지 않습니다.
+- `Main CI`: `main` 대상 PR과 push를 검증합니다. `main` push에서는 검증한 앱·백업 이미지를 변경 불가능한 Actions 아티팩트로 1일간 보관합니다.
+- `Main CD`: 성공한 `main` push의 Main CI 아티팩트만 내려받아 재빌드 없이 commit SHA와 `latest` 태그로 GHCR에 게시합니다. Linux 서버가 준비되기 전에는 이미지 발행까지만 수행하고, 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정한 경우에만 운영 서버에 배포합니다.
+
+개발 CD는 PR에서도 실행되지만 GitHub Environment나 운영 Secret을 사용하지 않는 읽기 전용 검증 워크플로입니다. 실제 배포는 Main CD만 담당하며 같은 운영 환경의 배포는 동시에 실행되지 않습니다.
+
+Main CD의 원격 배포는 다음 순서로 동작합니다.
 
 1. 새 앱 이미지를 pull합니다.
 2. `BACKUP_ENABLED=true`인 경우에만 백업 이미지를 pull하고 S3 쓰기 및 삭제 권한을 검사합니다.

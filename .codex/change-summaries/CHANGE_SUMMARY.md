@@ -267,3 +267,13 @@
 - 검증: .NET 포맷 검사, 경고·오류 없는 빌드, 자동 테스트 7개, Docker 앱 이미지 빌드 및 Migration baseline 통합 테스트가 모두 통과했습니다.
 - 남은 사용자 결정: 없음.
 
+## 2026-08-10 - 개발 CD PR 검증 및 운영 이미지 승격 보강
+
+- 목적: 개발 CD가 `develop`·`release` 대상 push와 PR에서 안전하게 일회성 배포를 검증하고, 운영 CD가 CI에서 검사한 컨테이너 이미지를 재빌드 없이 그대로 게시하도록 개선했습니다.
+- 변경 영역: `.github/workflows/Development-CD.yml`, `.github/workflows/Main-CI.yml`, `.github/workflows/Main-CD.yml`, `deployment/README.md`.
+- 반영 내용:
+  - 개발 CD를 권한 있는 `workflow_run`에서 PR 코드를 실행하던 구조 대신 읽기 전용 `push`·`pull_request` 직접 트리거로 변경했습니다.
+  - Main CI의 성공한 `main` push 이미지를 Actions 아티팩트로 전달하고 Main CD가 동일 이미지를 SHA·`latest` 태그로 GHCR에 게시하도록 했습니다.
+  - 개발 검증과 실제 운영 배포의 역할, 필요한 production Secret과 배포 활성화 조건을 현재 워크플로에 맞춰 문서화했습니다.
+- 검증: Docker Compose 렌더링, 외부 Action 40자리 SHA 고정 검사와 `git diff --check`가 통과했고, .NET 10 Release 빌드는 경고·오류 없이 완료됐으며 자동 테스트 7개가 모두 통과했습니다. 로컬 Docker 데몬 권한이 없어 이미지 아티팩트의 실제 save/load는 GitHub Actions에서 최종 확인해야 합니다.
+- 남은 사용자 결정: 없음.
