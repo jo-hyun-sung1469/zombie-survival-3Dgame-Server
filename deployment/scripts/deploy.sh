@@ -36,6 +36,7 @@ wait_for_health() {
 
 printf '%s' "$GHCR_PAT" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
 docker pull "$DEPLOY_APP_IMAGE"
+APP_IMAGE="$DEPLOY_APP_IMAGE" BACKUP_IMAGE="$DEPLOY_BACKUP_IMAGE" "${compose[@]}" pull caddy
 backup_enabled="$(awk -F= '$1 == "BACKUP_ENABLED" { print tolower($2) }' app.env | tail -n 1)"
 backup_enabled="${backup_enabled:-false}"
 
@@ -90,6 +91,16 @@ APP_IMAGE="$DEPLOY_APP_IMAGE" BACKUP_IMAGE="$DEPLOY_BACKUP_IMAGE" "${compose[@]}
   -d --no-deps --force-recreate app
 
 if wait_for_health game-server 90; then
+  echo "HTTPS 역방향 프록시를 시작합니다."
+  APP_IMAGE="$DEPLOY_APP_IMAGE" BACKUP_IMAGE="$DEPLOY_BACKUP_IMAGE" "${compose[@]}" up \
+    -d --no-deps --force-recreate caddy
+
+  if ! wait_for_health game-caddy 60; then
+    docker logs --tail 200 game-caddy || true
+    echo "Caddy가 제한 시간 안에 healthy 상태가 되지 않았습니다." >&2
+    exit 1
+  fi
+
   active_backup_image="$DEPLOY_BACKUP_IMAGE"
   if [[ "$backup_enabled" == "true" ]]; then
     active_backup_image="$(docker inspect -f '{{.Config.Image}}' game-mysql-backup)"
