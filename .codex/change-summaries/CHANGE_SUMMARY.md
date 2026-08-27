@@ -9,6 +9,13 @@
 - 반영 내용: 회원가입 비밀번호 정규식과 오류 안내를 수정하고, 세 기호의 거절 및 나머지 허용 문자와 기존 로그인 호환성을 검증하는 테스트 데이터를 갱신했습니다. 허용 특수문자는 `!@#$%^*?/`입니다.
 - 검증: `dotnet build --configuration Release --no-restore`가 경고·오류 없이 통과했고, Auth 테스트 90개가 모두 통과했습니다. `git diff --check`도 통과했습니다. 실제 서버 기동 및 HTTP 통합 검증은 수행하지 않았습니다.
 - 남은 사용자 결정: 없음.
+## 2026-08-26 - 공개 서버 배포 후속 보강
+
+- 목적: 개발 검증과 운영 배포를 분리한 상태에서 DuckDNS 공개 서버를 안전하게 갱신하고, 실패한 운영 배포를 이전 상태로 복구할 수 있도록 마무리했습니다.
+- 변경 영역: Development/Main CI·CD, Caddy·Compose, DuckDNS updater, 배포 트랜잭션·Migration 검사, 상태 확인 API와 운영 문서.
+- 반영 내용: 개발 CI/CD는 `develop`·`release` push와 PR에서 각각 코드 검증과 일회성 배포 검증을 수행합니다. Main CD는 최신 `main` CI 이미지 digest만 고유 staging으로 전송하며, `/live` 외부 검증 실패 시 앱·프록시·백업 설정을 롤백하고 `deployment/backups`는 보존합니다.
+- 검증: .NET 10 Release 빌드와 자동 테스트 7개, EF pending-model 검사, Compose 렌더링, Bash 문법, expand-first Migration 정책과 `git diff --check`를 통과했습니다. Docker가 꺼진 Windows 환경에서 건너뛴 Linux 트랜잭션·DuckDNS·Caddy 기동 검증은 GitHub Actions에서 최종 확인해야 합니다.
+- 남은 사용자 결정: 공유기 TCP 80/443 포트포워딩과 Ubuntu DuckDNS 토큰·GitHub production Secret을 설정한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
 
 ## 2026-08-02 - 운영·개발 CI/CD 독립 분리
 
@@ -296,7 +303,6 @@
 
 ## 2026-09-18 - 회원가입 문자 검증 및 중복·동시성 처리 개선
 
-- 목적: `Project_Change.md`의 요구사항을 반영해 닉네임 사전 중복 조회, 닉네임·이메일 중복 사유 구분, 입력 문자 제한과 실패 후 이메일 인증 재사용을 보장했습니다.
 - 변경 영역: Auth 서비스·컨트롤러·결과 타입, Contracts/Auth DTO·공통 입력 규칙, 중복 DB 오류 판별, 요청 제한, 인증 테스트, HTTP 예제, MySQL 스모크 스크립트, `Project_Change_Plan.md`.
 - 반영 내용:
   - 익명 `GET /api/auth/register/username-availability`를 추가하고 IP별 분당 30회 제한 및 캐시 방지를 적용했습니다.
@@ -340,3 +346,14 @@
 - 검증: Release 빌드 경고·오류 0개, 자동 테스트 94개 통과, 수정된 이미지로 격리된 MySQL 회원가입 스모크 56개 항목 통과, `git diff --check` 통과.
 - 검증 범위: MySQL 스모크는 인증 완료 자료를 사용하며 실제 SMTP 발송은 포함하지 않습니다. EF 모델·API 계약 변경은 없습니다.
 - 남은 사용자 결정: 없음. 사용자 요청에 따라 기존 보안 보강과 인증 저장 방식 변경은 보류했습니다. 커밋·push·운영 배포는 수행하지 않았습니다.
+## 2026-08-19 - 공개 배포 CI/CD와 롤백 보안 강화
+
+- 변경 영역: Main/Development CI·CD, `Program.cs`, Dockerfile과 Compose, Caddy, DuckDNS updater, 배포·Migration 검증 스크립트, 운영 문서.
+- 반영 내용:
+  - DB readiness `/health`와 공개 liveness `/live`를 분리하고, Caddy는 공개 `/health`를 404로 차단하며 고정된 RFC1918 `/24`~`/29` 프록시 대역만 신뢰하도록 했습니다.
+  - Main CD는 오래된 CI 실행을 건너뛰고 SHA 태그를 게시한 뒤 RepoDigest로 배포하며, 실행 중 바이너리를 내려받는 SSH Action 대신 호스트 지문을 검증한 기본 OpenSSH를 사용합니다.
+  - `prepare → 외부 HTTPS 검사 → confirm/rollback` 트랜잭션에 전체 `deployment/`, Compose, 앱·Caddy·백업 컨테이너와 frontend 네트워크 복구를 포함하고, 오래된 잠금 자동 회수와 멱등 롤백을 추가했습니다.
+  - MySQL·Caddy·.NET·AWS CLI 기반 이미지를 digest로 고정하고, DuckDNS 토큰의 argv 노출 방지·실행 제한 시간·중복 실행 잠금을 적용했습니다.
+  - 컨테이너 롤백으로 되돌릴 수 없는 축소형 EF Migration을 CI에서 거부하고 정책·설정·트랜잭션·DuckDNS 테스트를 개발/메인 CI에 연결했습니다.
+- 검증: .NET 10 Release 빌드(경고·오류 0), 자동 테스트 7개, actionlint, ShellCheck, Linux Bash 기반 Migration 정책·배포 설정·트랜잭션/백업 롤백·DuckDNS 테스트, Docker Compose 렌더링, 고정 digest Caddy 설정 검증과 `git diff --check`를 통과했습니다.
+- 남은 사용자 결정: 실제 인증서 발급과 외부 HTTPS 접속을 위해 공유기 TCP 80/443 포트포워딩 및 Ubuntu DuckDNS 토큰 등록을 완료한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
