@@ -2,6 +2,14 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-08-26 - 공개 서버 배포 후속 보강
+
+- 목적: 개발 검증과 운영 배포를 분리한 상태에서 DuckDNS 공개 서버를 안전하게 갱신하고, 실패한 운영 배포를 이전 상태로 복구할 수 있도록 마무리했습니다.
+- 변경 영역: Development/Main CI·CD, Caddy·Compose, DuckDNS updater, 배포 트랜잭션·Migration 검사, 상태 확인 API와 운영 문서.
+- 반영 내용: 개발 CI/CD는 `develop`·`release` push와 PR에서 각각 코드 검증과 일회성 배포 검증을 수행합니다. Main CD는 최신 `main` CI 이미지 digest만 고유 staging으로 전송하며, `/live` 외부 검증 실패 시 앱·프록시·백업 설정을 롤백하고 `deployment/backups`는 보존합니다.
+- 검증: .NET 10 Release 빌드와 자동 테스트 7개, EF pending-model 검사, Compose 렌더링, Bash 문법, expand-first Migration 정책과 `git diff --check`를 통과했습니다. Docker가 꺼진 Windows 환경에서 건너뛴 Linux 트랜잭션·DuckDNS·Caddy 기동 검증은 GitHub Actions에서 최종 확인해야 합니다.
+- 남은 사용자 결정: 공유기 TCP 80/443 포트포워딩과 Ubuntu DuckDNS 토큰·GitHub production Secret을 설정한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
+
 ## 2026-08-02 - 운영·개발 CI/CD 독립 분리
 
 - 목적: 운영 배포와 개발 배포 검증의 책임을 분리하고, 각 CI와 CD를 GitHub Actions에서 독립 실행 이력으로 확인할 수 있도록 구성했습니다.
@@ -285,3 +293,16 @@
 - 반영 내용: Caddy 역방향 프록시와 인증서 영구 볼륨, 자동 배포·상태 확인을 추가하고 개발 CD에서 HTTP 프록시까지 일회성 검증하도록 했습니다. `zombie-survival-3d-game.duckdns.org`의 IP 갱신, Ubuntu 방화벽, 공유기 포트포워딩 및 외부 검증 절차도 문서화했습니다.
 - 검증: Docker Compose 렌더링, 공식 Caddy 이미지의 Caddyfile 검증, Ubuntu 기준 Bash 구문, 외부 Action SHA 고정 및 `git diff --check`가 통과했습니다. .NET 10 Release 빌드는 경고·오류 없이 완료됐고 자동 테스트 7개가 모두 통과했습니다. 실제 인증서 발급과 외부 HTTPS 접속은 포트포워딩 후 확인해야 합니다.
 - 남은 사용자 결정: 공유기 TCP 80/443 포트포워딩과 DuckDNS 토큰 등록은 개인 네트워크에서 직접 설정해야 합니다.
+
+## 2026-08-19 - 공개 배포 CI/CD와 롤백 보안 강화
+
+- 목적: DuckDNS 공개 서버 배포가 최신 `main`의 검증된 이미지에만 적용되고, 외부 HTTPS 검증 실패 시 앱·백업·프록시·배포 파일을 일관되게 복구하도록 운영 경계를 강화했습니다.
+- 변경 영역: Main/Development CI·CD, `Program.cs`, Dockerfile과 Compose, Caddy, DuckDNS updater, 배포·Migration 검증 스크립트, 운영 문서.
+- 반영 내용:
+  - DB readiness `/health`와 공개 liveness `/live`를 분리하고, Caddy는 공개 `/health`를 404로 차단하며 고정된 RFC1918 `/24`~`/29` 프록시 대역만 신뢰하도록 했습니다.
+  - Main CD는 오래된 CI 실행을 건너뛰고 SHA 태그를 게시한 뒤 RepoDigest로 배포하며, 실행 중 바이너리를 내려받는 SSH Action 대신 호스트 지문을 검증한 기본 OpenSSH를 사용합니다.
+  - `prepare → 외부 HTTPS 검사 → confirm/rollback` 트랜잭션에 전체 `deployment/`, Compose, 앱·Caddy·백업 컨테이너와 frontend 네트워크 복구를 포함하고, 오래된 잠금 자동 회수와 멱등 롤백을 추가했습니다.
+  - MySQL·Caddy·.NET·AWS CLI 기반 이미지를 digest로 고정하고, DuckDNS 토큰의 argv 노출 방지·실행 제한 시간·중복 실행 잠금을 적용했습니다.
+  - 컨테이너 롤백으로 되돌릴 수 없는 축소형 EF Migration을 CI에서 거부하고 정책·설정·트랜잭션·DuckDNS 테스트를 개발/메인 CI에 연결했습니다.
+- 검증: .NET 10 Release 빌드(경고·오류 0), 자동 테스트 7개, actionlint, ShellCheck, Linux Bash 기반 Migration 정책·배포 설정·트랜잭션/백업 롤백·DuckDNS 테스트, Docker Compose 렌더링, 고정 digest Caddy 설정 검증과 `git diff --check`를 통과했습니다.
+- 남은 사용자 결정: 실제 인증서 발급과 외부 HTTPS 접속을 위해 공유기 TCP 80/443 포트포워딩 및 Ubuntu DuckDNS 토큰 등록을 완료한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
