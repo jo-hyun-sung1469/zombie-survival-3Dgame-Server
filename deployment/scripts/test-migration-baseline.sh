@@ -81,7 +81,7 @@ docker run --detach \
   -e "MYSQL_USER=${mysql_user}" \
   -e "MYSQL_PASSWORD=${mysql_password}" \
   -e "MYSQL_ROOT_PASSWORD=${mysql_root_password}" \
-  mysql:8.4.10 >/dev/null
+  mysql:8.4.10@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d >/dev/null
 
 if ! wait_for_mysql; then
   docker logs "$mysql_container_name" >&2 || true
@@ -106,6 +106,7 @@ docker run --detach \
   -e SmtpEmail__UserName=migration-test \
   -e SmtpEmail__Password=migration-test-password \
   -e SmtpEmail__FromAddress=migration-test@example.invalid \
+  -e ReverseProxy__KnownNetworkCidr=172.29.0.0/24 \
   zombie-survival-server:ci >/dev/null
 
 if ! wait_for_app; then
@@ -179,6 +180,7 @@ docker run --detach \
   -e SmtpEmail__UserName=migration-test \
   -e SmtpEmail__Password=migration-test-password \
   -e SmtpEmail__FromAddress=migration-test@example.invalid \
+  -e ReverseProxy__KnownNetworkCidr=172.29.0.0/24 \
   zombie-survival-server:ci >/dev/null
 
 if ! wait_for_app; then

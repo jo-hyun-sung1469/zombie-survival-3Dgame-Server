@@ -20,10 +20,12 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -36,27 +38,55 @@ jobs:
       - name: Run tests
         run: dotnet test "${SOLUTION_PATH}" --configuration Release --no-build
 
+      - name: Restore pinned .NET tools
+        run: dotnet tool restore
+
+      - name: Verify EF model has a migration
+        run: >-
+          dotnet tool run dotnet-ef migrations has-pending-model-changes
+          --project zombie_servival-3Dgame_Server/zombie_survival-3Dgame_Server.csproj
+          --startup-project zombie_servival-3Dgame_Server/zombie_survival-3Dgame_Server.csproj
+          --configuration Release
+          --no-build
+
       - name: Validate Docker Compose
         run: |
-          export MYSQL_PASSWORD="$(openssl rand -hex 24)"
-          export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
-          export JWT_SECRET_KEY="$(openssl rand -hex 32)"
-          export SMTP_PASSWORD="$(openssl rand -hex 24)"
+          MYSQL_PASSWORD="$(openssl rand -hex 24)"
+          MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
+          JWT_SECRET_KEY="$(openssl rand -hex 32)"
+          SMTP_PASSWORD="$(openssl rand -hex 24)"
           export SMTP_HOST="smtp.example.invalid"
           export SMTP_USERNAME="compose-check"
           export SMTP_FROM_ADDRESS="compose-check@example.invalid"
+          export MYSQL_PASSWORD MYSQL_ROOT_PASSWORD JWT_SECRET_KEY SMTP_PASSWORD
           docker compose --env-file app.env.example config --quiet
 
       - name: Validate Caddy configuration
         run: |
           docker run --rm \
+            --env APP_SCHEME=https \
             --env APP_DOMAIN=zombie-survival-3d-game.duckdns.org \
             --volume "${PWD}/deployment/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2.11.4-alpine \
+            caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 \
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Validate deployment shell scripts
-        run: bash -n deployment/backup/*.sh deployment/scripts/*.sh
+        run: bash -n deployment/backup/*.sh deployment/duckdns/*.sh deployment/scripts/*.sh
+
+      - name: Enforce expand-first EF migrations
+        run: bash deployment/scripts/check-expand-only-migrations.sh
+
+      - name: Test expand-first migration policy
+        run: bash deployment/scripts/test-expand-only-migrations.sh
+
+      - name: Test deployment configuration validation
+        run: bash deployment/scripts/test-deploy-validation.sh
+
+      - name: Test deployment transaction and rollback
+        run: bash deployment/scripts/test-deploy-transaction.sh
+
+      - name: Test DuckDNS credential handling
+        run: bash deployment/scripts/test-duckdns-updater.sh
 
       - name: Build linux/amd64 app image
         run: docker build --platform linux/amd64 --tag zombie-survival-server:ci .
