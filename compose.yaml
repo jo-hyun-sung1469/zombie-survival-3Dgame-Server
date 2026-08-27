@@ -2,7 +2,7 @@ name: zombie-survival-server
 
 services:
   mysql:
-    image: mysql:8.4.10
+    image: mysql:8.4.10@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d
     container_name: game-mysql
     restart: unless-stopped
     environment:
@@ -53,6 +53,7 @@ services:
       SmtpEmail__Password: ${SMTP_PASSWORD:-}
       SmtpEmail__FromAddress: ${SMTP_FROM_ADDRESS:?SMTP_FROM_ADDRESS is required}
       SmtpEmail__FromName: ${SMTP_FROM_NAME:-Zombie Survival}
+      ReverseProxy__KnownNetworkCidr: ${FRONTEND_SUBNET:-172.29.0.0/24}
       TZ: UTC
     ports:
       - "127.0.0.1:${APP_HOST_PORT:-5000}:8080"
@@ -67,13 +68,14 @@ services:
       - backend
 
   caddy:
-    image: caddy:2.11.4-alpine
+    image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     container_name: game-caddy
     restart: unless-stopped
     depends_on:
       app:
         condition: service_healthy
     environment:
+      APP_SCHEME: ${APP_SCHEME:-https}
       APP_DOMAIN: ${APP_DOMAIN:-zombie-survival-3d-game.duckdns.org}
     ports:
       - "80:80"
@@ -84,11 +86,25 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:2019/config/"]
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://127.0.0.1:2018/live"]
       interval: 10s
       timeout: 5s
       retries: 6
-      start_period: 10s
+      start_period: 20s
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
     networks:
       - frontend
 
@@ -112,10 +128,28 @@ services:
       MYSQL_BACKUP_S3_URI: ${MYSQL_BACKUP_S3_URI:-}
       AWS_REGION: ${AWS_REGION:-}
       AWS_DEFAULT_REGION: ${AWS_REGION:-}
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws-credentials
+      AWS_PROFILE: ${AWS_PROFILE:-default}
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
       TZ: UTC
     volumes:
       - backup_tmp:/backups
+      - type: bind
+        source: ${AWS_CREDENTIALS_FILE:-/dev/null}
+        target: /run/secrets/aws-credentials
+        read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
     networks:
       - backend
 
@@ -132,5 +166,8 @@ volumes:
 networks:
   frontend:
     name: zombie_survival_frontend
+    ipam:
+      config:
+        - subnet: ${FRONTEND_SUBNET:-172.29.0.0/24}
   backend:
     name: zombie_survival_backend
