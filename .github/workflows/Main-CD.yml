@@ -9,25 +9,60 @@ permissions:
   contents: read
 
 jobs:
-  publish:
-    name: Publish production container images
+  freshness:
+    name: Verify Main CI source is current
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+    outputs:
+      is_current: ${{ steps.compare.outputs.is_current }}
+
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Compare Main CI source with current main
+        id: compare
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -Eeuo pipefail
+          current_sha="$(git rev-parse HEAD)"
+
+          if [[ "$SOURCE_SHA" == "$current_sha" ]]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "is_current=false" >> "$GITHUB_OUTPUT"
+          echo "Main CI 소스 ${SOURCE_SHA}는 현재 main ${current_sha}보다 오래되어 발행하지 않습니다."
+
+  publish:
+    name: Publish production container images
+    needs: freshness
+    if: needs.freshness.outputs.is_current == 'true'
+    runs-on: ubuntu-latest
+    permissions:
       actions: read
       contents: read
       packages: write
     outputs:
-      app_image: ${{ steps.images.outputs.app_image }}
-      backup_image: ${{ steps.images.outputs.backup_image }}
-      source_sha: ${{ steps.images.outputs.source_sha }}
+      app_image: ${{ steps.push.outputs.app_image }}
+      backup_image: ${{ steps.push.outputs.backup_image }}
+      source_sha: ${{ steps.push.outputs.source_sha }}
 
     steps:
       - name: Download CI-validated production images
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: production-images-${{ github.event.workflow_run.head_sha }}
           path: deployment-images
@@ -37,49 +72,102 @@ jobs:
       - name: Load CI-validated production images
         run: docker load --input deployment-images/production-images.tar
 
-      - name: Resolve production image names and tags
-        id: images
-        shell: bash
-        env:
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "app_image=${image_root}:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
-          echo "backup_image=${image_root}-mysql-backup:${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
-          echo "app_tags=${image_root}:${SOURCE_SHA},${image_root}:latest" >> "$GITHUB_OUTPUT"
-          echo "backup_tags=${image_root}-mysql-backup:${SOURCE_SHA},${image_root}-mysql-backup:latest" >> "$GITHUB_OUTPUT"
-          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
-
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag and push CI-validated production images
+      - name: Push immutable images and resolve repository digests
+        id: push
         shell: bash
         env:
-          APP_TAGS: ${{ steps.images.outputs.app_tags }}
-          BACKUP_TAGS: ${{ steps.images.outputs.backup_tags }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          IFS=',' read -r app_sha_tag app_channel_tag <<< "$APP_TAGS"
-          IFS=',' read -r backup_sha_tag backup_channel_tag <<< "$BACKUP_TAGS"
+          set -Eeuo pipefail
+          image_root="ghcr.io/${GITHUB_REPOSITORY,,}"
+          app_sha_tag="${image_root}:${SOURCE_SHA}"
+          backup_sha_tag="${image_root}-mysql-backup:${SOURCE_SHA}"
 
           docker tag zombie-survival-server:ci "$app_sha_tag"
-          docker tag zombie-survival-server:ci "$app_channel_tag"
           docker tag zombie-survival-mysql-backup:ci "$backup_sha_tag"
-          docker tag zombie-survival-mysql-backup:ci "$backup_channel_tag"
 
-          docker push "$app_sha_tag"
-          docker push "$app_channel_tag"
-          docker push "$backup_sha_tag"
-          docker push "$backup_channel_tag"
+          push_and_resolve_digest() {
+            local image_tag="$1"
+            local repository="$2"
+            local push_log
+            local -a pushed_digests
+
+            push_log="$(mktemp)"
+            if ! docker push "$image_tag" | tee "$push_log" >&2; then
+              rm -f "$push_log"
+              return 1
+            fi
+
+            mapfile -t pushed_digests < <(
+              sed -nE 's/^.*digest: (sha256:[a-f0-9]{64})( size:.*)?$/\1/p' "$push_log" \
+                | sort -u
+            )
+            rm -f "$push_log"
+
+            if (( ${#pushed_digests[@]} != 1 )) \
+              || [[ ! "${pushed_digests[0]}" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "docker push 결과에서 단일 이미지 digest를 확인하지 못했습니다: ${image_tag}" >&2
+              return 1
+            fi
+
+            printf '%s@%s\n' "$repository" "${pushed_digests[0]}"
+          }
+
+          app_image="$(push_and_resolve_digest "$app_sha_tag" "$image_root")"
+          backup_image="$(push_and_resolve_digest "$backup_sha_tag" "${image_root}-mysql-backup")"
+          {
+            echo "app_image=${app_image}"
+            echo "backup_image=${backup_image}"
+            echo "source_sha=${SOURCE_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy-freshness:
+    name: Recheck current main before deployment
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      is_current: ${{ steps.compare.outputs.is_current }}
+
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Recompare published source with current main
+        id: compare
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.publish.outputs.source_sha }}
+        run: |
+          set -Eeuo pipefail
+          current_sha="$(git rev-parse HEAD)"
+
+          if [[ "$SOURCE_SHA" == "$current_sha" ]]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "is_current=false" >> "$GITHUB_OUTPUT"
+          echo "발행 소스 ${SOURCE_SHA}는 현재 main ${current_sha}보다 오래되어 배포하지 않습니다."
 
   deploy:
     name: Deploy to production Linux host
-    if: vars.SSH_DEPLOY_ENABLED == 'true'
-    needs: publish
+    if: >-
+      vars.SSH_DEPLOY_ENABLED == 'true' &&
+      needs.deploy-freshness.outputs.is_current == 'true'
+    needs: [publish, deploy-freshness]
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -88,16 +176,91 @@ jobs:
     env:
       DEPLOY_APP_IMAGE: ${{ needs.publish.outputs.app_image }}
       DEPLOY_BACKUP_IMAGE: ${{ needs.publish.outputs.backup_image }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-      GHCR_PAT: ${{ secrets.GHCR_PAT }}
+      APP_SCHEME: https
+      APP_DOMAIN: ${{ vars.APP_DOMAIN || 'zombie-survival-3d-game.duckdns.org' }}
+      DEPLOY_STAGING_DIR: .deployment-stage-${{ needs.publish.outputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.publish.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Final source freshness check
+        id: final_freshness
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.publish.outputs.source_sha }}
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          current_sha="$(curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GITHUB_API_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            | jq --exit-status --raw-output '.object.sha')"
+
+          if [[ "$SOURCE_SHA" == "$current_sha" ]]; then
+            echo "is_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "is_current=false" >> "$GITHUB_OUTPUT"
+          echo "배포 실행 직전 main이 ${current_sha}(으)로 변경되어 원격 배포 단계를 건너뜁니다."
+
+      - name: Validate production deployment settings
+        if: steps.final_freshness.outputs.is_current == 'true'
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST_FINGERPRINT: ${{ secrets.SSH_HOST_FINGERPRINT }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "$SSH_HOST_FINGERPRINT" || ! "$SSH_HOST_FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]; then
+            echo "production 환경의 SSH_HOST_FINGERPRINT에 SHA256 호스트 키 지문을 설정하세요." >&2
+            exit 1
+          fi
+
+          if [[ -z "$SSH_HOST" || "$SSH_HOST" =~ [[:space:]] || "$SSH_HOST" == -* ]]; then
+            echo "SSH_HOST가 올바르지 않습니다." >&2
+            exit 1
+          fi
+          if [[ ! "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]]; then
+            echo "SSH_USER가 올바른 Linux 사용자명이 아닙니다." >&2
+            exit 1
+          fi
+
+          if [[ ! "$APP_DOMAIN" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]]; then
+            echo "APP_DOMAIN은 스킴, 포트, 경로가 없는 공개 FQDN이어야 합니다." >&2
+            exit 1
+          fi
+
+          if [[ ! "$DEPLOY_APP_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]]; then
+            echo "앱 이미지는 GHCR의 불변 digest 참조여야 합니다." >&2
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_BACKUP_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]]; then
+            echo "백업 이미지는 GHCR의 불변 digest 참조여야 합니다." >&2
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_STAGING_DIR" =~ ^\.deployment-stage-[a-f0-9]{40}-[0-9]+-[0-9]+$ ]]; then
+            echo "DEPLOY_STAGING_DIR이 고유한 배포 루트 직속 경로가 아닙니다." >&2
+            exit 1
+          fi
 
       - name: Connect to Tailscale
+        if: steps.final_freshness.outputs.is_current == 'true'
         uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
@@ -105,22 +268,388 @@ jobs:
           tags: tag:ci
           ping: ${{ secrets.SSH_HOST }}
 
-      - name: Upload deployment files
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: compose.yaml,deployment
-          target: ~/zombie-survival-server
+      - name: Configure verified native SSH
+        if: steps.final_freshness.outputs.is_current == 'true'
+        id: ssh_config
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST_FINGERPRINT: ${{ secrets.SSH_HOST_FINGERPRINT }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          key_path="${RUNNER_TEMP}/zombie-deploy-key"
+          known_hosts_path="${RUNNER_TEMP}/zombie-deploy-known-hosts"
+          scan_path="${RUNNER_TEMP}/zombie-deploy-keyscan"
 
-      - name: Deploy app with health rollback
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: DEPLOY_APP_IMAGE,DEPLOY_BACKUP_IMAGE,GHCR_USERNAME,GHCR_PAT
-          script: |
-            cd ~/zombie-survival-server
-            bash deployment/scripts/deploy.sh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key_path"
+          chmod 600 "$key_path"
+          ssh-keygen -y -f "$key_path" >/dev/null
+
+          ssh-keyscan -T 10 -t ed25519 "$SSH_HOST" > "$scan_path"
+          if [[ ! -s "$scan_path" ]]; then
+            echo "SSH 서버의 ED25519 호스트 키를 가져오지 못했습니다." >&2
+            exit 1
+          fi
+
+          mapfile -t actual_fingerprints < <(
+            ssh-keygen -E sha256 -lf "$scan_path" | awk '{print $2}' | sort -u
+          )
+          if (( ${#actual_fingerprints[@]} != 1 )) || [[ "${actual_fingerprints[0]}" != "$SSH_HOST_FINGERPRINT" ]]; then
+            echo "SSH ED25519 호스트 키 지문이 SSH_HOST_FINGERPRINT와 일치하지 않습니다." >&2
+            exit 1
+          fi
+
+          sort -u "$scan_path" > "$known_hosts_path"
+          chmod 600 "$known_hosts_path"
+          rm -f "$scan_path"
+
+          ssh \
+            -i "$key_path" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o "UserKnownHostsFile=${known_hosts_path}" \
+            -o ConnectTimeout=15 \
+            "${SSH_USER}@${SSH_HOST}" \
+            true
+
+      - name: Prepare remote deployment staging directory
+        if: steps.final_freshness.outputs.is_current == 'true'
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          ssh_args=(
+            -i "${RUNNER_TEMP}/zombie-deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${RUNNER_TEMP}/zombie-deploy-known-hosts"
+            -o ConnectTimeout=15
+          )
+
+          {
+            printf 'DEPLOY_STAGING_DIR=%q\n' "$DEPLOY_STAGING_DIR"
+            cat <<'REMOTE'
+          export DEPLOY_STAGING_DIR
+          set -Eeuo pipefail
+          cd ~/zombie-survival-server
+
+          deployment_root="$(pwd -P)"
+          root_owner="$(stat -c '%u' "$deployment_root")"
+          root_mode="$(stat -c '%a' "$deployment_root")"
+          if [[ "$root_owner" != "$EUID" || ! "$root_mode" =~ ^[0-7]{3,4}$ \
+            || $((8#$root_mode & 0022)) -ne 0 ]]; then
+            echo "배포 루트의 소유자 또는 권한이 안전하지 않습니다." >&2
+            exit 1
+          fi
+
+          if [[ ! "$DEPLOY_STAGING_DIR" =~ ^\.deployment-stage-[a-f0-9]{40}-[0-9]+-[0-9]+$ ]]; then
+            echo "스테이징 경로가 안전하지 않습니다." >&2
+            exit 1
+          fi
+          if [[ -e "$DEPLOY_STAGING_DIR" || -L "$DEPLOY_STAGING_DIR" ]]; then
+            echo "이번 실행의 고유 스테이징 경로가 이미 존재합니다." >&2
+            exit 1
+          fi
+          mkdir -m 700 -- "$DEPLOY_STAGING_DIR"
+          REMOTE
+          } | ssh "${ssh_args[@]}" "${SSH_USER}@${SSH_HOST}" 'bash -se'
+
+      - name: Upload deployment candidate with native SSH
+        if: steps.final_freshness.outputs.is_current == 'true'
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          ssh_args=(
+            -i "${RUNNER_TEMP}/zombie-deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${RUNNER_TEMP}/zombie-deploy-known-hosts"
+            -o ConnectTimeout=15
+          )
+
+          tar \
+            --exclude='deployment/backups' \
+            --exclude='deployment/backups/*' \
+            --create \
+            --file=- \
+            compose.yaml deployment \
+            | ssh "${ssh_args[@]}" "${SSH_USER}@${SSH_HOST}" \
+              "set -Eeuo pipefail; cd ~/zombie-survival-server; tar --extract --file=- --directory='$DEPLOY_STAGING_DIR' --no-same-owner --no-same-permissions"
+
+      - name: Prepare app deployment transaction
+        if: steps.final_freshness.outputs.is_current == 'true'
+        id: prepare
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        run: |
+          set -Eeuo pipefail
+          ssh_args=(
+            -i "${RUNNER_TEMP}/zombie-deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${RUNNER_TEMP}/zombie-deploy-known-hosts"
+            -o ConnectTimeout=15
+          )
+
+          {
+            printf 'DEPLOY_APP_IMAGE=%q\n' "$DEPLOY_APP_IMAGE"
+            printf 'DEPLOY_BACKUP_IMAGE=%q\n' "$DEPLOY_BACKUP_IMAGE"
+            printf 'GHCR_USERNAME=%q\n' "$GHCR_USERNAME"
+            printf 'GHCR_PAT=%q\n' "$GHCR_PAT"
+            printf 'APP_SCHEME=%q\n' "$APP_SCHEME"
+            printf 'APP_DOMAIN=%q\n' "$APP_DOMAIN"
+            printf 'DEPLOY_STAGING_DIR=%q\n' "$DEPLOY_STAGING_DIR"
+            cat <<'REMOTE'
+          export DEPLOY_APP_IMAGE DEPLOY_BACKUP_IMAGE GHCR_USERNAME GHCR_PAT APP_SCHEME APP_DOMAIN DEPLOY_STAGING_DIR
+          set -Eeuo pipefail
+          cd ~/zombie-survival-server
+          bash "${DEPLOY_STAGING_DIR}/deployment/scripts/deploy.sh" prepare
+          REMOTE
+          } | ssh "${ssh_args[@]}" "${SSH_USER}@${SSH_HOST}" 'bash -se'
+
+      - name: Verify external HTTPS deployment
+        if: steps.final_freshness.outputs.is_current == 'true'
+        id: external_probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          redirect_status="$(curl \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "http://${APP_DOMAIN}/live")"
+          redirect_target="$(curl \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --output /dev/null \
+            --write-out '%{redirect_url}' \
+            "http://${APP_DOMAIN}/live")"
+          if [[ "$redirect_status" != "308" || "$redirect_target" != "https://${APP_DOMAIN}/live" ]]; then
+            echo "HTTP /live가 표준 HTTPS 주소로 리다이렉트되지 않았습니다: ${redirect_status} ${redirect_target}" >&2
+            exit 1
+          fi
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 12 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --connect-timeout 5 \
+            --max-time 15 \
+            "https://${APP_DOMAIN}/live" >/dev/null
+
+          public_health_status="$(curl \
+            --silent \
+            --show-error \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "https://${APP_DOMAIN}/health")"
+          if [[ "$public_health_status" != "404" ]]; then
+            echo "공개 /health 경로가 차단되지 않았습니다. HTTP 상태: ${public_health_status}" >&2
+            exit 1
+          fi
+
+          public_health_slash_status="$(curl \
+            --silent \
+            --show-error \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "https://${APP_DOMAIN}/health/")"
+          if [[ "$public_health_slash_status" != "404" ]]; then
+            echo "공개 /health/ 경로가 차단되지 않았습니다. HTTP 상태: ${public_health_slash_status}" >&2
+            exit 1
+          fi
+
+          for blocked_health_path in /Health /HEALTH/ /health%2F; do
+            blocked_health_status="$(curl \
+              --silent \
+              --show-error \
+              --connect-timeout 5 \
+              --max-time 15 \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "https://${APP_DOMAIN}${blocked_health_path}")"
+            if [[ "$blocked_health_status" != "404" ]]; then
+              echo "공개 ${blocked_health_path} 경로가 차단되지 않았습니다. HTTP 상태: ${blocked_health_status}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Confirm externally verified deployment
+        if: steps.final_freshness.outputs.is_current == 'true'
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          ssh_args=(
+            -i "${RUNNER_TEMP}/zombie-deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${RUNNER_TEMP}/zombie-deploy-known-hosts"
+            -o ConnectTimeout=15
+          )
+
+          {
+            printf 'APP_SCHEME=%q\n' "$APP_SCHEME"
+            printf 'APP_DOMAIN=%q\n' "$APP_DOMAIN"
+            printf 'DEPLOY_STAGING_DIR=%q\n' "$DEPLOY_STAGING_DIR"
+            cat <<'REMOTE'
+          export APP_SCHEME APP_DOMAIN DEPLOY_STAGING_DIR
+          set -Eeuo pipefail
+          cd ~/zombie-survival-server
+          bash "${DEPLOY_STAGING_DIR}/deployment/scripts/deploy.sh" confirm
+          REMOTE
+          } | ssh "${ssh_args[@]}" "${SSH_USER}@${SSH_HOST}" 'bash -se'
+
+      - name: Roll back unconfirmed deployment
+        if: (failure() || cancelled()) && steps.prepare.outcome != 'skipped'
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          ssh_args=(
+            -i "${RUNNER_TEMP}/zombie-deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${RUNNER_TEMP}/zombie-deploy-known-hosts"
+            -o ConnectTimeout=15
+          )
+
+          {
+            printf 'APP_SCHEME=%q\n' "$APP_SCHEME"
+            printf 'APP_DOMAIN=%q\n' "$APP_DOMAIN"
+            printf 'DEPLOY_STAGING_DIR=%q\n' "$DEPLOY_STAGING_DIR"
+            cat <<'REMOTE'
+          export APP_SCHEME APP_DOMAIN DEPLOY_STAGING_DIR
+          set -Eeuo pipefail
+          cd ~/zombie-survival-server
+
+          if [[ ! -e .deployment-transaction.env \
+            && ! ( -d .deployment-config-rollback \
+              && ! -f .deployment-config-rollback/confirmed ) ]]; then
+            echo "보류 중인 배포 상태가 없어 추가 롤백을 건너뜁니다."
+            exit 0
+          fi
+
+          rollback_script="${DEPLOY_STAGING_DIR}/deployment/scripts/deploy.sh"
+          if [[ ! -f "$rollback_script" || -L "$rollback_script" ]]; then
+            echo "이번 실행의 후보 롤백 스크립트를 찾을 수 없습니다." >&2
+            exit 1
+          fi
+          bash "$rollback_script" rollback
+          REMOTE
+          } | ssh "${ssh_args[@]}" "${SSH_USER}@${SSH_HOST}" 'bash -se'
+
+      - name: Remove this run's remote staging directory
+        if: always() && steps.ssh_config.outcome == 'success'
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          ssh_args=(
+            -i "${RUNNER_TEMP}/zombie-deploy-key"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${RUNNER_TEMP}/zombie-deploy-known-hosts"
+            -o ConnectTimeout=15
+          )
+
+          {
+            printf 'DEPLOY_STAGING_DIR=%q\n' "$DEPLOY_STAGING_DIR"
+            cat <<'REMOTE'
+          export DEPLOY_STAGING_DIR
+          set -Eeuo pipefail
+          cd ~/zombie-survival-server
+
+          if [[ ! "$DEPLOY_STAGING_DIR" =~ ^\.deployment-stage-[a-f0-9]{40}-[0-9]+-[0-9]+$ ]]; then
+            echo "정리할 스테이징 경로가 안전하지 않습니다." >&2
+            exit 1
+          fi
+
+          if [[ -f .deployment-transaction.env && ! -L .deployment-transaction.env ]]; then
+            transaction_staging="$(awk -F= '$1 == "TRANSACTION_STAGING_DIRECTORY" { print $2 }' .deployment-transaction.env)"
+            if [[ "$transaction_staging" == "$DEPLOY_STAGING_DIR" ]]; then
+              echo "롤백에 필요한 이번 실행의 스테이징을 보존합니다."
+              exit 0
+            fi
+          fi
+          if [[ -d .deployment-config-rollback \
+            && ! -f .deployment-config-rollback/confirmed \
+            && -f .deployment-config-rollback/staging-directory ]]; then
+            snapshot_staging="$(<.deployment-config-rollback/staging-directory)"
+            if [[ "$snapshot_staging" == "$DEPLOY_STAGING_DIR" ]]; then
+              echo "롤백에 필요한 이번 실행의 스테이징을 보존합니다."
+              exit 0
+            fi
+          fi
+
+          if [[ ! -e "$DEPLOY_STAGING_DIR" && ! -L "$DEPLOY_STAGING_DIR" ]]; then
+            exit 0
+          fi
+          if [[ -L "$DEPLOY_STAGING_DIR" || ! -d "$DEPLOY_STAGING_DIR" \
+            || "$(stat -c '%u' "$DEPLOY_STAGING_DIR")" != "$EUID" \
+            || "$(stat -c '%a' "$DEPLOY_STAGING_DIR")" != "700" ]]; then
+            echo "이번 실행의 스테이징 경로 소유자 또는 권한이 안전하지 않아 정리하지 않습니다." >&2
+            exit 1
+          fi
+
+          find "$DEPLOY_STAGING_DIR" -depth -type f -delete
+          find "$DEPLOY_STAGING_DIR" -depth -type l -delete
+          find "$DEPLOY_STAGING_DIR" -depth -type d -empty -delete
+          if [[ -e "$DEPLOY_STAGING_DIR" || -L "$DEPLOY_STAGING_DIR" ]]; then
+            echo "스테이징에 정리할 수 없는 특수 항목이 남아 있습니다." >&2
+            exit 1
+          fi
+          REMOTE
+          } | ssh "${ssh_args[@]}" "${SSH_USER}@${SSH_HOST}" 'bash -se'
+
+      - name: Remove ephemeral SSH files
+        if: always()
+        shell: bash
+        run: |
+          rm -f \
+            "${RUNNER_TEMP}/zombie-deploy-key" \
+            "${RUNNER_TEMP}/zombie-deploy-known-hosts" \
+            "${RUNNER_TEMP}/zombie-deploy-keyscan"
