@@ -1,6 +1,6 @@
-FROM public.ecr.aws/aws-cli/aws-cli:2.27.49 AS awscli
+FROM public.ecr.aws/aws-cli/aws-cli:2.27.49@sha256:bad3346a39098ab077be6ed58c7e1fe68321a4a844c7c740318100013e6c3581 AS awscli
 
-FROM mysql:8.4.10
+FROM mysql:8.4.10@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d
 RUN microdnf install --assumeyes findutils gzip \
     && microdnf clean all
 

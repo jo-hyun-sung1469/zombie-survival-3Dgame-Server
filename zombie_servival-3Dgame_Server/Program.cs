@@ -22,6 +22,7 @@ using zombie_survival_3Dgame_Server.WeaponUpgrade;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("player-defaults.local.json", optional: true, reloadOnChange: true);
+var trustedProxyNetwork = GetTrustedProxyNetwork(builder.Configuration, builder.Environment);
 
 // Add services to the container.
 builder.Services.AddOptions<JwtOptions>()
@@ -85,8 +86,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.ForwardLimit = 1;
+
+    if (trustedProxyNetwork is not { } network)
+    {
+        return;
+    }
+
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
+    options.KnownIPNetworks.Add(network);
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -202,6 +210,10 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = registration => registration.Tags.Contains("ready")
 }).AllowAnonymous();
+app.MapHealthChecks("/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+}).AllowAnonymous();
 app.MapControllers();
 
 app.Run();
@@ -235,6 +247,55 @@ static string GetPlayerPartitionKey(HttpContext context)
 static bool IsInternalDatabaseHost(string? host)
 {
     return string.Equals(host, "mysql", StringComparison.OrdinalIgnoreCase);
+}
+
+static System.Net.IPNetwork? GetTrustedProxyNetwork(
+    IConfiguration configuration,
+    IHostEnvironment environment)
+{
+    if (!environment.IsProduction())
+    {
+        return null;
+    }
+
+    const string settingName = "ReverseProxy:KnownNetworkCidr";
+    var configuredCidr = configuration[settingName];
+    if (string.IsNullOrWhiteSpace(configuredCidr))
+    {
+        throw new InvalidOperationException(
+            $"{settingName} is required in Production.");
+    }
+
+    if (!System.Net.IPNetwork.TryParse(configuredCidr, out var network))
+    {
+        throw new InvalidOperationException(
+            $"{settingName} must be a valid CIDR network.");
+    }
+
+    if (!IsPrivateDockerNetwork(network))
+    {
+        throw new InvalidOperationException(
+            $"{settingName} must be a network-aligned RFC1918 IPv4 CIDR with a /24 through /29 prefix.");
+    }
+
+    return network;
+}
+
+static bool IsPrivateDockerNetwork(System.Net.IPNetwork network)
+{
+    if (network.BaseAddress.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork
+        || network.PrefixLength is < 24 or > 29)
+    {
+        return false;
+    }
+
+    var addressBytes = network.BaseAddress.GetAddressBytes();
+    var blockSize = 1 << (32 - network.PrefixLength);
+    var isNetworkAligned = addressBytes[3] % blockSize == 0;
+    var isPrivate = addressBytes[0] == 10
+                    || (addressBytes[0] == 172 && addressBytes[1] is >= 16 and <= 31)
+                    || (addressBytes[0] == 192 && addressBytes[1] == 168);
+    return isNetworkAligned && isPrivate;
 }
 
 static void ValidateDatabaseTransport(IHostEnvironment environment, MySqlConnectionStringBuilder settings)

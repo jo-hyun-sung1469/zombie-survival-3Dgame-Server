@@ -1,5 +1,15 @@
 @zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
 
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/live
+Accept: application/json
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/health
+Accept: application/json
+
+###
+
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/email-code
 Content-Type: application/json
 
