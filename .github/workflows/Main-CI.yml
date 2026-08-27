@@ -9,6 +9,26 @@ on:
 env:
   DOTNET_VERSION: 10.0.x
   SOLUTION_PATH: zombie_survival-3Dgame_Server.sln
+  MYSQL_DATABASE: zombie_survival_main_ci
+  MYSQL_USER: zombie_main_ci
+  MYSQL_PASSWORD: main-ci-mysql-password
+  MYSQL_ROOT_PASSWORD: main-ci-root-password
+  DATABASE_SSL_MODE: Disabled
+  JWT_SECRET_KEY: main_ci_jwt_secret_key_0123456789abcdef
+  SMTP_HOST: smtp.example.invalid
+  SMTP_PORT: 587
+  SMTP_ENABLE_SSL: true
+  SMTP_USERNAME: main-ci
+  SMTP_PASSWORD: main-ci-smtp-password
+  SMTP_FROM_ADDRESS: main-ci@example.invalid
+  SMTP_FROM_NAME: Zombie Survival Main CI
+  ASPNETCORE_ENVIRONMENT: Production
+  APP_HOST_PORT: 5000
+  APP_SCHEME: http
+  APP_DOMAIN: localhost
+  FRONTEND_SUBNET: 172.29.0.0/24
+  APP_IMAGE: zombie-survival-server:ci
+  BACKUP_IMAGE: zombie-survival-mysql-backup:ci
 
 permissions:
   contents: read
@@ -20,10 +40,12 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -36,33 +58,151 @@ jobs:
       - name: Run tests
         run: dotnet test "${SOLUTION_PATH}" --configuration Release --no-build
 
+      - name: Restore pinned .NET tools
+        run: dotnet tool restore
+
+      - name: Verify EF model has a migration
+        run: >-
+          dotnet tool run dotnet-ef migrations has-pending-model-changes
+          --project zombie_servival-3Dgame_Server/zombie_survival-3Dgame_Server.csproj
+          --startup-project zombie_servival-3Dgame_Server/zombie_survival-3Dgame_Server.csproj
+          --configuration Release
+          --no-build
+
       - name: Validate Docker Compose
         run: |
-          export MYSQL_PASSWORD="$(openssl rand -hex 24)"
-          export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
-          export JWT_SECRET_KEY="$(openssl rand -hex 32)"
-          export SMTP_PASSWORD="$(openssl rand -hex 24)"
+          MYSQL_PASSWORD="$(openssl rand -hex 24)"
+          MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
+          JWT_SECRET_KEY="$(openssl rand -hex 32)"
+          SMTP_PASSWORD="$(openssl rand -hex 24)"
           export SMTP_HOST="smtp.example.invalid"
           export SMTP_USERNAME="compose-check"
           export SMTP_FROM_ADDRESS="compose-check@example.invalid"
+          export APP_SCHEME="https"
+          export APP_DOMAIN="zombie-survival-3d-game.duckdns.org"
+          export MYSQL_PASSWORD MYSQL_ROOT_PASSWORD JWT_SECRET_KEY SMTP_PASSWORD
           docker compose --env-file app.env.example config --quiet
 
       - name: Validate Caddy configuration
         run: |
           docker run --rm \
+            --env APP_SCHEME=https \
             --env APP_DOMAIN=zombie-survival-3d-game.duckdns.org \
             --volume "${PWD}/deployment/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2.11.4-alpine \
+            caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 \
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Validate deployment shell scripts
-        run: bash -n deployment/backup/*.sh deployment/scripts/*.sh
+        run: bash -n deployment/backup/*.sh deployment/duckdns/*.sh deployment/scripts/*.sh
+
+      - name: Enforce expand-first EF migrations
+        run: bash deployment/scripts/check-expand-only-migrations.sh
+
+      - name: Test expand-first migration policy
+        run: bash deployment/scripts/test-expand-only-migrations.sh
+
+      - name: Test deployment configuration validation
+        run: bash deployment/scripts/test-deploy-validation.sh
+
+      - name: Test deployment transaction and rollback
+        run: bash deployment/scripts/test-deploy-transaction.sh
+
+      - name: Test DuckDNS credential handling
+        run: bash deployment/scripts/test-duckdns-updater.sh
 
       - name: Build linux/amd64 app image
         run: docker build --platform linux/amd64 --tag zombie-survival-server:ci .
 
       - name: Test migration deployment guard and baseline
         run: bash deployment/scripts/test-migration-baseline.sh
+
+      - name: Start disposable production topology
+        run: docker compose --env-file app.env.example up --detach --wait --wait-timeout 180 mysql app caddy
+
+      - name: Verify direct and proxied health contracts
+        run: |
+          docker compose --env-file app.env.example ps
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 http://127.0.0.1:5000/health
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 http://localhost/live
+
+          public_health_status="$(curl \
+            --silent \
+            --show-error \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            http://localhost/health)"
+          if [[ "$public_health_status" != "404" ]]; then
+            echo "Caddy가 공개 /health를 차단하지 않았습니다. HTTP 상태: ${public_health_status}" >&2
+            exit 1
+          fi
+
+          public_health_slash_status="$(curl \
+            --silent \
+            --show-error \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            http://localhost/health/)"
+          if [[ "$public_health_slash_status" != "404" ]]; then
+            echo "Caddy가 공개 /health/를 차단하지 않았습니다. HTTP 상태: ${public_health_slash_status}" >&2
+            exit 1
+          fi
+
+          for blocked_health_path in /Health /HEALTH/ /health%2F; do
+            blocked_health_status="$(curl \
+              --silent \
+              --show-error \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "http://localhost${blocked_health_path}")"
+            if [[ "$blocked_health_status" != "404" ]]; then
+              echo "Caddy가 공개 ${blocked_health_path}를 차단하지 않았습니다. HTTP 상태: ${blocked_health_status}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify readiness and liveness during a database outage
+        run: |
+          wait_for_status() {
+            local url="$1"
+            local expected_status="$2"
+            local attempts="$3"
+            local status=""
+
+            for ((attempt = 1; attempt <= attempts; attempt++)); do
+              status="$(curl \
+                --silent \
+                --show-error \
+                --connect-timeout 3 \
+                --max-time 10 \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                "$url" || true)"
+              if [[ "$status" == "$expected_status" ]]; then
+                return 0
+              fi
+              sleep 2
+            done
+
+            echo "${url}에서 HTTP ${expected_status}를 기다렸지만 마지막 상태는 ${status:-none}였습니다." >&2
+            return 1
+          }
+
+          docker compose --env-file app.env.example stop mysql
+          wait_for_status http://127.0.0.1:5000/health 503 30
+          wait_for_status http://127.0.0.1:5000/live 200 10
+          wait_for_status http://localhost/live 200 10
+          wait_for_status http://localhost/health 404 10
+
+          docker compose --env-file app.env.example start mysql
+          wait_for_status http://127.0.0.1:5000/health 200 60
+
+      - name: Print disposable production logs on failure
+        if: failure()
+        run: docker compose --env-file app.env.example logs --no-color --tail 200 mysql app caddy
+
+      - name: Remove disposable production topology
+        if: always()
+        run: docker compose --env-file app.env.example down --volumes --remove-orphans
 
       - name: Build linux/amd64 backup image
         run: docker build --platform linux/amd64 --tag zombie-survival-mysql-backup:ci deployment/backup
@@ -78,7 +218,7 @@ jobs:
 
       - name: Upload CI-validated production images
         if: github.event_name == 'push'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: production-images-${{ github.sha }}
           path: deployment-images/production-images.tar

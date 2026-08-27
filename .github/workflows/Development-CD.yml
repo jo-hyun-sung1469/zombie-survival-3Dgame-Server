@@ -33,13 +33,14 @@ jobs:
       SMTP_FROM_NAME: Zombie Survival CI
       ASPNETCORE_ENVIRONMENT: Production
       APP_HOST_PORT: 5000
-      APP_DOMAIN: http://localhost
+      APP_SCHEME: http
+      APP_DOMAIN: localhost
       APP_IMAGE: zombie-survival-server:deployment-validation
       BACKUP_IMAGE: zombie-survival-mysql-backup:deployment-validation
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -56,7 +57,13 @@ jobs:
         run: |
           docker compose --env-file app.env.example ps
           curl --fail --silent --show-error --retry 5 --retry-delay 2 http://127.0.0.1:5000/health
-          curl --fail --silent --show-error --retry 5 --retry-delay 2 http://localhost/health
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 http://127.0.0.1:5000/live
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 http://localhost/live
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/health)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/health/)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/Health)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/HEALTH/)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/health%2F)" = "404"
 
       - name: Print deployment logs on failure
         if: failure()
