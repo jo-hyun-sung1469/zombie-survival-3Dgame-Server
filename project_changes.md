@@ -3,7 +3,7 @@
 그렇기에 스킬에 project_changes를 확인하고 수립한 구현 계획을 change_planning에 작성하도록 명시해야한다
 
 ## 원하는 구조
-- 기능 관련 문제가 아니라서 없다
+- project_changes를 확인하고 change_planning에서 제작한다
 
 ## 참고할 사항
 - 커밋할때 #1번으로 커밋하기
