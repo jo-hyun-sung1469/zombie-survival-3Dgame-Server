@@ -49,6 +49,13 @@
 - 반영 내용: 배포 파일 전송 전에 Tailscale OAuth client로 `tag:ci` 임시 노드를 생성하고, `SSH_HOST` 연결 확인이 완료된 뒤 SCP와 SSH 배포를 실행하도록 했습니다.
 - 검증: 워크플로 diff와 YAML 구조를 정적으로 확인합니다. 실제 연결 검증은 Tailscale OAuth client 및 GitHub Secrets 등록 후 첫 배포에서 수행해야 합니다.
 - 남은 사용자 결정: Tailscale OAuth client를 `auth_keys` 쓰기 권한과 `tag:ci`로 생성하고, GitHub에 `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`을 등록해야 합니다.
+## 2026-09-08 - 요구사항 문서 기반 구현 계획 스킬 추가
+
+- 목적: 사용자가 확인을 요청했을 때 `project_changes.md`의 실제 요구사항을 읽고, 확인한 내용에 근거해 `change_planning.md`에 구현 계획을 기록하도록 작업 흐름을 명시했습니다.
+- 변경 영역: `.codex/skills/project-change-plan/SKILL.md`, 아키텍처 스킬 2종, `AGENTS.md`, `.codex/codex.md`, 변경 요약.
+- 반영 내용: 확인 요청 시에만 문서를 읽도록 하고, 요구사항이 없거나 비어 있으면 개발자에게 작성을 안내하도록 했습니다. 현재 작업에서 실제 요구사항을 확인하기 전에는 계획 파일의 생성·수정·초안 기록을 금지하고, 기존 계획이나 일반 개발 요청만으로 흐름을 시작하지 않도록 연결 지침도 통일했습니다. 확인 후 계획을 작성하되 구현은 요청받은 경우에 진행합니다. 문서 별칭, 작업별 예외, 커밋 이슈 번호 규칙을 유지했으며 이번 작업의 `change_planning.md` 기록은 생략했습니다. 후속 커밋 시 본문 이슈 번호는 `#1`을 사용합니다.
+- 검증: 스킬 3종의 frontmatter·미완성 항목·공백 정적 검사, 연결 링크 5건, `git diff --check`, 요구사항·계획 파일 미변경 확인을 통과했습니다. `quick_validate.py`는 Python의 `yaml` 모듈이 없어 실행하지 못했습니다. C#과 실행 설정의 변경이 없어 .NET 빌드·테스트는 생략했습니다.
+- 남은 사용자 결정: 없음.
 
 ## 2026-06-27 - 기능 단위 커밋 세분화 규칙 강화
 

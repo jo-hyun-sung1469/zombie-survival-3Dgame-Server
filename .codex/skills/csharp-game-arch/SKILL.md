@@ -7,6 +7,10 @@ description: >
   or planning dependency structure.
 ---
 
+## File-Based Change Requests
+
+When the user asks to read or check `project_changes.md`, follow [project-change-plan](../project-change-plan/SKILL.md) before applying the layer and service rules below. Write or update `change_planning.md` only after actually checking the current requirements; if they are missing or empty, ask the user to write them and leave the plan file untouched. A general implementation request or a reference to `change_planning.md` alone does not start this workflow. Honor task-specific exceptions.
+
 ## Layer Structure
 
 ```text

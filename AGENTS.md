@@ -91,6 +91,8 @@ zombie_servival-3Dgame_Server/
 
 ## Harness Decision Guardrails
 
+- Follow [project-change-plan](./.codex/skills/project-change-plan/SKILL.md) only when the user asks to read or check `project_changes.md` (including `project_change`). Do not start this workflow merely because the files exist or a general development or `change_planning.md` request is made.
+- Create or update `change_planning.md` only after actually reading and verifying `project_changes.md` in the current task in response to that check request. If requirements are missing or empty, tell the user to write them first and leave the plan file untouched. Honor an explicit instruction to skip the planning file for the current task.
 - Before changing code, inspect the relevant files and current git state first.
 - Before making a sudden or unplanned code change, or introducing a new implementation direction, do not decide on behalf of the developer; present exactly three meaningful implementation options, mark one as `(Recommended)`, and wait for the developer's choice.
 - If it is unclear whether a code change is expected, treat it as requiring developer choice instead of making a judgment call.
@@ -109,6 +111,7 @@ zombie_servival-3Dgame_Server/
 
 Skills in `.codex/skills/`:
 
+- `project-change-plan`: check `project_changes.md` on user request, prompt for missing requirements, and write `change_planning.md` only after checking the requirements
 - `aspnet-api-arch`: domain structure, controller/service rules
 - `jwt-auth-flow`: claims, registration, login rules
 - `player-save-flow`: save/load semantics, mapping rules
