@@ -14,6 +14,22 @@ public sealed class AuthController(
     IJwtTokenService jwtTokenService,
     IPlayerDefaultDataRepairService playerDefaultDataRepairService) : ControllerBase
 {
+    [HttpGet("register/username-availability")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicyNames.UserNameAvailability)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<UserNameAvailabilityResponse>> GetUserNameAvailabilityAsync(
+        [FromQuery] UserNameAvailabilityRequest request,
+        CancellationToken cancellationToken)
+    {
+        var isAvailable = await authService.IsUserNameAvailableAsync(request.UserName, cancellationToken);
+        return Ok(new UserNameAvailabilityResponse
+        {
+            UserName = request.UserName,
+            IsAvailable = isAvailable
+        });
+    }
+
     [HttpPost("register/email-code")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicyNames.EmailCodeSend)]
@@ -82,8 +98,12 @@ public sealed class AuthController(
 
         return result.Status switch
         {
-            RegisterStatus.DuplicateUserNameOrEmail =>
-                ApiProblemDetails.Create(StatusCodes.Status409Conflict, "Username or email already exists."),
+            RegisterStatus.DuplicateUserName =>
+                ApiProblemDetails.Create(StatusCodes.Status409Conflict, "Username already exists.",
+                    extensions: new Dictionary<string, object?> { ["code"] = "username_already_exists" }),
+            RegisterStatus.DuplicateEmail =>
+                ApiProblemDetails.Create(StatusCodes.Status409Conflict, "Email already exists.",
+                    extensions: new Dictionary<string, object?> { ["code"] = "email_already_exists" }),
             RegisterStatus.EmailVerificationExpired =>
                 ApiProblemDetails.Create(StatusCodes.Status401Unauthorized, "Email verification has expired."),
             RegisterStatus.EmailVerificationAlreadyUsed =>
