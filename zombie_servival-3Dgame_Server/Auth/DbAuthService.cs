@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using zombie_survival_3Dgame_Server.Auth.Models;
 using zombie_survival_3Dgame_Server.Common;
@@ -247,7 +246,36 @@ public sealed class DbAuthService(
         verificationCode.MarkChanged();
 
         dbContext.Users.Add(user);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await RestoreFailedRegistrationAsync(user, verificationCode, cancellationToken);
+            if (dbContext.Entry(verificationCode).State != EntityState.Detached
+                && verificationCode.ConsumedAtUtc is not null)
+            {
+                return new RegisterResult { Status = RegisterStatus.EmailVerificationAlreadyUsed };
+            }
+
+            throw;
+        }
+        catch (DbUpdateException exception) when (PersistenceErrors.IsDuplicateKey(exception))
+        {
+            await RestoreFailedRegistrationAsync(user, verificationCode, cancellationToken);
+            if (await dbContext.Users.AsNoTracking().AnyAsync(x => x.Email == normalizedEmail, cancellationToken))
+            {
+                return new RegisterResult { Status = RegisterStatus.DuplicateEmail };
+            }
+
+            if (await dbContext.Users.AsNoTracking().AnyAsync(x => x.UserName == request.UserName, cancellationToken))
+            {
+                return new RegisterResult { Status = RegisterStatus.DuplicateUserName };
+            }
+
+            throw;
+        }
 
         return new RegisterResult
         {
@@ -261,6 +289,16 @@ public sealed class DbAuthService(
                 CreatedAtUtc = user.CreatedAtUtc
             }
         };
+    }
+
+    private async Task RestoreFailedRegistrationAsync(
+        AppUser user,
+        AuthVerificationCode verificationCode,
+        CancellationToken cancellationToken)
+    {
+        // SaveChanges rolls back the database transaction, but leaves tracked changes in memory.
+        dbContext.Entry(user).State = EntityState.Detached;
+        await dbContext.Entry(verificationCode).ReloadAsync(cancellationToken);
     }
 
     private static string GenerateNumericCode(int length)
