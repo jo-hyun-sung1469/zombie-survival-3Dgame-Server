@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using zombie_survival_3Dgame_Server.Auth.Models;
+using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.Auth;
 using zombie_survival_3Dgame_Server.Data;
 using zombie_survival_3Dgame_Server.Options;
@@ -19,6 +20,12 @@ public sealed class DbAuthService(
     private readonly PasswordHasher<AppUser> _passwordHasher = new();
     private readonly PasswordHasher<AuthVerificationCode> _codeHasher = new();
     private readonly EmailAuthOptions _emailAuthOptions = emailAuthOptions.Value;
+
+    public async Task<bool> IsUserNameAvailableAsync(string userName, CancellationToken cancellationToken)
+    {
+        return !await dbContext.Users.AsNoTracking()
+            .AnyAsync(x => x.UserName == userName, cancellationToken);
+    }
 
     public async Task<RegisterEmailCodeResult> SendRegisterEmailCodeAsync(
         SendRegisterEmailCodeRequest request,
@@ -194,14 +201,13 @@ public sealed class DbAuthService(
 
     public async Task<RegisterResult> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
-        var normalizedUserName = (request.UserName ?? string.Empty).Trim();
         var normalizedEmail = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
         var exists = await dbContext.Users.AnyAsync(
-            x => x.UserName == normalizedUserName || x.Email == normalizedEmail, cancellationToken);
+            x => x.Email == normalizedEmail, cancellationToken);
 
         if (exists)
         {
-            return new RegisterResult { Status = RegisterStatus.DuplicateUserNameOrEmail };
+            return new RegisterResult { Status = RegisterStatus.DuplicateEmail };
         }
 
         var now = DateTime.UtcNow;
@@ -231,7 +237,7 @@ public sealed class DbAuthService(
 
         var user = new AppUser
         {
-            UserName = normalizedUserName,
+            UserName = request.UserName,
             Email = normalizedEmail,
             Role = "Player",
             CreatedAtUtc = now
