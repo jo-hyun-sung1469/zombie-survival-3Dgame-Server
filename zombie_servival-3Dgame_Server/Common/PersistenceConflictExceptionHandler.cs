@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
-using MySqlConnector;
 
 namespace zombie_survival_3Dgame_Server.Common;
 
@@ -38,25 +37,6 @@ public sealed class PersistenceConflictExceptionHandler(
             return true;
         }
 
-        return exception is DbUpdateException dbUpdateException
-               && FindMySqlException(dbUpdateException) is { Number: 1062 };
-    }
-
-    private static MySqlException? FindMySqlException(Exception exception)
-    {
-        for (var current = exception; current is not null; current = current.InnerException!)
-        {
-            if (current is MySqlException mySqlException)
-            {
-                return mySqlException;
-            }
-
-            if (current.InnerException is null)
-            {
-                break;
-            }
-        }
-
-        return null;
+        return PersistenceErrors.IsDuplicateKey(exception);
     }
 }
