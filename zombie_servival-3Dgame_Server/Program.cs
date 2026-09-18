@@ -3,7 +3,6 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
@@ -91,6 +90,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(
+        RateLimitPolicyNames.UserNameAvailability,
+        context => CreateFixedWindowPartition(GetRemotePartitionKey(context), 20, TimeSpan.FromMinutes(1)));
     options.AddPolicy(
         RateLimitPolicyNames.EmailCodeSend,
         context => CreateFixedWindowPartition(GetRemotePartitionKey(context), 3, TimeSpan.FromMinutes(10)));
