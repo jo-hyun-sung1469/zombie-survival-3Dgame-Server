@@ -303,3 +303,12 @@
 - 검증: Release 빌드 경고·오류 0개, 자동 테스트 89개 통과, 워크플로 YAML 4개 파싱 및 브랜치·이미지·단계 순서·운영 배포 조건 검사 32개 통과, 참조 PowerShell 스크립트 구문 검사 및 `git diff --check` 통과.
 - 검증 범위: 이번 변경에서는 MySQL 스모크를 재실행하지 않았습니다. Ubuntu의 `pwsh`를 포함한 실제 GitHub Actions 실행은 변경사항 push 후 확인해야 합니다.
 - 남은 사용자 결정: 없음. 커밋·push·운영 배포는 수행하지 않았습니다.
+
+## 2026-09-19 - CI 회원가입 스모크 요청 제한 기준 수정
+
+- 목적: 서버의 닉네임 조회 제한은 분당 20회인데 스모크 테스트가 30회 성공을 기대해 Development CI와 Main CI가 실패한 불일치를 수정했습니다.
+- 변경 영역: `deployment/scripts/test-auth-registration.ps1`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 반영 내용: 사용자 선택 1번에 따라 서버 정책은 유지하고, 테스트를 첫 20회 HTTP 200 및 21번째 HTTP 429 검증으로 변경했습니다. 실패 메시지의 횟수도 맞췄습니다.
+- 검증: PowerShell 구문 검사 및 `git diff --check` 통과. Windows PowerShell에서 새 앱 이미지를 빌드하고 격리된 Production 앱·MySQL 8.4.10으로 전체 스모크 56개 항목을 실행해 모두 통과했습니다. 기존 66개에서 허용 요청 반복 검사가 10회 줄었으며 나머지 검증은 유지했습니다.
+- 검증 범위: 실제 SMTP 발송은 제외됩니다. 이번 수정 후 GitHub Actions는 아직 재실행하지 않았으며, 커밋·push 후 원격 CI 결과를 확인해야 합니다.
+- 남은 사용자 결정: 없음. 커밋·push·운영 배포는 수행하지 않았습니다.
