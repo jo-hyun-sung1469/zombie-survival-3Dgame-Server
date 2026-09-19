@@ -1,5 +1,11 @@
 @zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
 
+### Username availability is a snapshot, not a reservation. Invalid input returns 400.
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/username-availability?userName=player1
+Accept: application/json
+
+###
+
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/email-code
 Content-Type: application/json
 
@@ -19,6 +25,8 @@ Content-Type: application/json
 
 ###
 
+### A 409 code distinguishes username_already_exists from email_already_exists.
+### After a username conflict, change userName and reuse the unexpired emailVerificationId.
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register
 Content-Type: application/json
 
