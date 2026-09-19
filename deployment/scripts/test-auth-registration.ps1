@@ -265,10 +265,10 @@ try {
     Write-Host 'PASS: expiry, email mismatch and transaction rollback.'
 
     Restart-TestApp
-    foreach ($attempt in 1..30) {
-        Assert-That ((Invoke-Api 'GET' '/api/auth/register/username-availability?userName=rateuser').Status -eq 200) 'Availability permits the first 30 requests.'
+    foreach ($attempt in 1..20) {
+        Assert-That ((Invoke-Api 'GET' '/api/auth/register/username-availability?userName=rateuser').Status -eq 200) 'Availability permits the first 20 requests.'
     }
-    Assert-That ((Invoke-Api 'GET' '/api/auth/register/username-availability?userName=rateuser').Status -eq 429) 'Availability rejects request 31 within the same window.'
+    Assert-That ((Invoke-Api 'GET' '/api/auth/register/username-availability?userName=rateuser').Status -eq 429) 'Availability rejects request 21 within the same window.'
     Write-Host "PASS: isolated MySQL auth smoke completed ($script:checks assertions)."
 }
 catch {
