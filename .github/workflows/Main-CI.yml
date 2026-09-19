@@ -53,6 +53,10 @@ jobs:
       - name: Build linux/amd64 app image
         run: docker build --platform linux/amd64 --tag zombie-survival-server:ci .
 
+      - name: Test registration against MySQL
+        shell: pwsh
+        run: ./deployment/scripts/test-auth-registration.ps1 -AppImage zombie-survival-server:ci
+
       - name: Test migration deployment guard and baseline
         run: bash deployment/scripts/test-migration-baseline.sh
 

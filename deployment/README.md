@@ -54,12 +54,16 @@ Compose 내부의 `mysql` 서비스 연결은 격리된 backend 네트워크이�
 
 개발용과 운영용 CI/CD는 다음 역할로 분리됩니다.
 
-- `Development CI`: `develop`·`release` 대상 push와 PR에서 .NET 빌드, 테스트, Compose·배포 스크립트, Migration baseline 및 컨테이너 빌드를 검증합니다.
-- `Development CD`: `develop`·`release` 대상 push와 PR에서 별도의 일회성 MySQL·앱 환경을 직접 실행하고 `/health`를 검사한 뒤 모든 컨테이너와 volume을 제거합니다. GHCR 이미지 발행, 운영 Secret 사용, 원격 서버 배포는 하지 않습니다.
-- `Main CI`: `main` 대상 PR과 push를 검증합니다. `main` push에서는 검증한 앱·백업 이미지를 변경 불가능한 Actions 아티팩트로 1일간 보관합니다.
+- `Development CI`: `develop`·`release`·`hotfix/**` 브랜치 push와 이 브랜치를 대상으로 하는 PR에서 .NET 빌드, 테스트, Compose·배포 스크립트, 회원가입 MySQL 통합 검증, Migration baseline 및 컨테이너 빌드를 검증합니다.
+- `Development CD`: `develop`·`release`·`hotfix/**` 브랜치 push와 이 브랜치를 대상으로 하는 PR에서 별도의 일회성 MySQL·앱 환경을 직접 실행하고 `/health`를 검사한 뒤 모든 컨테이너와 volume을 제거합니다. GHCR 이미지 발행, 운영 Secret 사용, 원격 서버 배포는 하지 않습니다.
+- `Main CI`: `main` 대상 PR과 push를 검증하며 회원가입 MySQL 통합 검증도 실행합니다. `main` push에서는 검증한 앱·백업 이미지를 변경 불가능한 Actions 아티팩트로 1일간 보관합니다.
 - `Main CD`: 성공한 `main` push의 Main CI 아티팩트만 내려받아 재빌드 없이 commit SHA와 `latest` 태그로 GHCR에 게시합니다. Linux 서버가 준비되기 전에는 이미지 발행까지만 수행하고, 저장소 변수 `SSH_DEPLOY_ENABLED=true`를 설정한 경우에만 운영 서버에 배포합니다.
 
 개발 CD는 PR에서도 실행되지만 GitHub Environment나 운영 Secret을 사용하지 않는 읽기 전용 검증 워크플로입니다. 실제 배포는 Main CD만 담당하며 같은 운영 환경의 배포는 동시에 실행되지 않습니다.
+
+예를 들어 `hotfix/signup-validation`에 push하면 Development CI와 Development CD가 실행됩니다. 이 브랜치에서 `main`으로 PR을 열면 PR의 대상 브랜치가 `main`이므로 Main CI가 실행됩니다. `hotfix/**`는 중첩된 hotfix 브랜치 이름도 포함합니다. hotfix 브랜치의 push만으로 운영 이미지를 발행하거나 운영 서버를 교체하지 않습니다.
+
+개발·main CI의 `Test registration against MySQL` 단계는 Ubuntu 러너의 `pwsh`로 `deployment/scripts/test-auth-registration.ps1`을 실행합니다. 바로 앞 단계에서 빌드한 `zombie-survival-server:ci` 이미지를 `-AppImage`로 재사용하여 Production 환경의 동시 가입, 중복 오류, 인증 재사용, 롤백 및 요청 제한을 검증합니다. 실패하면 CI가 실패하며, main 이미지 패키징·발행으로 진행하지 않습니다. 실제 SMTP 발송은 포함하지 않습니다.
 
 Main CD의 원격 배포는 다음 순서로 동작합니다.
 

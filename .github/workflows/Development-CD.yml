@@ -2,9 +2,9 @@ name: Development CD
 
 on:
   push:
-    branches: [develop, release]
+    branches: [develop, release, 'hotfix/**']
   pull_request:
-    branches: [develop, release]
+    branches: [develop, release, 'hotfix/**']
 
 permissions:
   contents: read
