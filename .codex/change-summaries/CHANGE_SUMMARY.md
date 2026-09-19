@@ -291,3 +291,15 @@
 - 검증: 빌드 경고·오류 0개, 자동 테스트 89개 통과, 실제 MySQL 8.4.10 스모크 66개 항목 통과, EF 모델 변경 없음, `git diff --check` 및 PowerShell 구문 검사 통과. 검증용 임시 리소스는 정리했습니다.
 - 검증 범위: 실제 SMTP 발송과 인증 코드 입력 과정은 이번 스모크에서 실행하지 않았습니다. 테스트 DB에 인증 완료 자료를 준비했습니다.
 - 남은 사용자 결정: 없음. 클라이언트에는 새 조회 API·오류 코드·문자 정책 연동이 필요하며, 클라이언트 수정·커밋·배포는 수행하지 않았습니다.
+
+## 2026-09-19 - hotfix CI/CD 트리거 및 회원가입 통합 검증 연결
+
+- 목적: `hotfix/signup-validation`을 포함한 hotfix 브랜치에서도 자동 빌드·테스트·일회성 배포 검증이 실행되도록 하고, 회원가입 MySQL 검증을 CI에 연결했습니다.
+- 변경 영역: `.github/workflows/Development-CI.yml`, `.github/workflows/Development-CD.yml`, `.github/workflows/Main-CI.yml`, `deployment/README.md`.
+- 반영 내용:
+  - Development CI/CD의 push 및 PR 대상 브랜치에 `hotfix/**`를 추가했습니다.
+  - Development CI와 Main CI가 기존 빌드 이미지를 재사용해 `pwsh`로 회원가입 통합 검증 스크립트를 실행하도록 연결했습니다.
+  - Main CD의 main push·CI 성공 조건 및 운영 배포 활성화 조건은 유지했습니다.
+- 검증: Release 빌드 경고·오류 0개, 자동 테스트 89개 통과, 워크플로 YAML 4개 파싱 및 브랜치·이미지·단계 순서·운영 배포 조건 검사 32개 통과, 참조 PowerShell 스크립트 구문 검사 및 `git diff --check` 통과.
+- 검증 범위: 이번 변경에서는 MySQL 스모크를 재실행하지 않았습니다. Ubuntu의 `pwsh`를 포함한 실제 GitHub Actions 실행은 변경사항 push 후 확인해야 합니다.
+- 남은 사용자 결정: 없음. 커밋·push·운영 배포는 수행하지 않았습니다.
