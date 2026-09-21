@@ -234,6 +234,11 @@ public sealed class DbAuthService(
             return new RegisterResult { Status = RegisterStatus.EmailMismatch };
         }
 
+        if (!await IsUserNameAvailableAsync(request.UserName, cancellationToken))
+        {
+            return new RegisterResult { Status = RegisterStatus.DuplicateUserName };
+        }
+
         var user = new AppUser
         {
             UserName = request.UserName,
