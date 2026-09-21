@@ -5,7 +5,8 @@ namespace zombie_survival_3Dgame_Server.Contracts.Auth;
 public sealed class RegisterRequest
 {
     [Required]
-    [StringLength(30, MinimumLength = 3)]
+    [StringLength(AuthInputRules.UserNameMaxLength, MinimumLength = AuthInputRules.UserNameMinLength)]
+    [RegularExpression(AuthInputRules.UserNamePattern, ErrorMessage = AuthInputRules.UserNameError)]
     public string UserName { get; init; } = string.Empty;
 
     [Required]
@@ -17,6 +18,7 @@ public sealed class RegisterRequest
     public string EmailVerificationId { get; init; } = string.Empty;
 
     [Required]
-    [StringLength(100, MinimumLength = 6)]
+    [StringLength(AuthInputRules.PasswordMaxLength, MinimumLength = AuthInputRules.PasswordMinLength)]
+    [RegularExpression(AuthInputRules.PasswordPattern, ErrorMessage = AuthInputRules.PasswordError)]
     public string Password { get; init; } = string.Empty;
 }

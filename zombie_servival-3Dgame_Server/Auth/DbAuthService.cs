@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using zombie_survival_3Dgame_Server.Auth.Models;
+using zombie_survival_3Dgame_Server.Common;
 using zombie_survival_3Dgame_Server.Contracts.Auth;
 using zombie_survival_3Dgame_Server.Data;
 using zombie_survival_3Dgame_Server.Options;
@@ -19,6 +19,12 @@ public sealed class DbAuthService(
     private readonly PasswordHasher<AppUser> _passwordHasher = new();
     private readonly PasswordHasher<AuthVerificationCode> _codeHasher = new();
     private readonly EmailAuthOptions _emailAuthOptions = emailAuthOptions.Value;
+
+    public async Task<bool> IsUserNameAvailableAsync(string userName, CancellationToken cancellationToken)
+    {
+        return !await dbContext.Users.AsNoTracking()
+            .AnyAsync(x => x.UserName == userName, cancellationToken);
+    }
 
     public async Task<RegisterEmailCodeResult> SendRegisterEmailCodeAsync(
         SendRegisterEmailCodeRequest request,
@@ -194,14 +200,13 @@ public sealed class DbAuthService(
 
     public async Task<RegisterResult> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
-        var normalizedUserName = (request.UserName ?? string.Empty).Trim();
         var normalizedEmail = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
         var exists = await dbContext.Users.AnyAsync(
-            x => x.UserName == normalizedUserName || x.Email == normalizedEmail, cancellationToken);
+            x => x.Email == normalizedEmail, cancellationToken);
 
         if (exists)
         {
-            return new RegisterResult { Status = RegisterStatus.DuplicateUserNameOrEmail };
+            return new RegisterResult { Status = RegisterStatus.DuplicateEmail };
         }
 
         var now = DateTime.UtcNow;
@@ -229,9 +234,14 @@ public sealed class DbAuthService(
             return new RegisterResult { Status = RegisterStatus.EmailMismatch };
         }
 
+        if (!await IsUserNameAvailableAsync(request.UserName, cancellationToken))
+        {
+            return new RegisterResult { Status = RegisterStatus.DuplicateUserName };
+        }
+
         var user = new AppUser
         {
-            UserName = normalizedUserName,
+            UserName = request.UserName,
             Email = normalizedEmail,
             Role = "Player",
             CreatedAtUtc = now
@@ -241,7 +251,36 @@ public sealed class DbAuthService(
         verificationCode.MarkChanged();
 
         dbContext.Users.Add(user);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await RestoreFailedRegistrationAsync(user, verificationCode, cancellationToken);
+            if (dbContext.Entry(verificationCode).State != EntityState.Detached
+                && verificationCode.ConsumedAtUtc is not null)
+            {
+                return new RegisterResult { Status = RegisterStatus.EmailVerificationAlreadyUsed };
+            }
+
+            throw;
+        }
+        catch (DbUpdateException exception) when (PersistenceErrors.IsDuplicateKey(exception))
+        {
+            await RestoreFailedRegistrationAsync(user, verificationCode, cancellationToken);
+            if (await dbContext.Users.AsNoTracking().AnyAsync(x => x.Email == normalizedEmail, cancellationToken))
+            {
+                return new RegisterResult { Status = RegisterStatus.DuplicateEmail };
+            }
+
+            if (await dbContext.Users.AsNoTracking().AnyAsync(x => x.UserName == request.UserName, cancellationToken))
+            {
+                return new RegisterResult { Status = RegisterStatus.DuplicateUserName };
+            }
+
+            throw;
+        }
 
         return new RegisterResult
         {
@@ -255,6 +294,16 @@ public sealed class DbAuthService(
                 CreatedAtUtc = user.CreatedAtUtc
             }
         };
+    }
+
+    private async Task RestoreFailedRegistrationAsync(
+        AppUser user,
+        AuthVerificationCode verificationCode,
+        CancellationToken cancellationToken)
+    {
+        // SaveChanges rolls back the database transaction, but leaves tracked changes in memory.
+        dbContext.Entry(user).State = EntityState.Detached;
+        await dbContext.Entry(verificationCode).ReloadAsync(cancellationToken);
     }
 
     private static string GenerateNumericCode(int length)

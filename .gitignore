@@ -1,5 +1,6 @@
 .idea/
 .vs/
+docs/
 *.user
 **/bin/
 **/obj/

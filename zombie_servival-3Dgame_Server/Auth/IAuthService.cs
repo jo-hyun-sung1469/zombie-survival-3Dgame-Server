@@ -5,6 +5,8 @@ namespace zombie_survival_3Dgame_Server.Auth;
 
 public interface IAuthService
 {
+    Task<bool> IsUserNameAvailableAsync(string userName, CancellationToken cancellationToken);
+
     Task<RegisterEmailCodeResult> SendRegisterEmailCodeAsync(
         SendRegisterEmailCodeRequest request,
         CancellationToken cancellationToken);

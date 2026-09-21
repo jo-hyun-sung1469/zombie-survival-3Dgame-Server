@@ -5,7 +5,8 @@ namespace zombie_survival_3Dgame_Server.Auth;
 public enum RegisterStatus
 {
     Created,
-    DuplicateUserNameOrEmail,
+    DuplicateUserName,
+    DuplicateEmail,
     EmailVerificationInvalid,
     EmailVerificationExpired,
     EmailVerificationAlreadyUsed,
