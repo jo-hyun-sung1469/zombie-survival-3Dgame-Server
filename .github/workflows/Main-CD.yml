@@ -120,6 +120,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          command_timeout: 30m
           envs: DEPLOY_APP_IMAGE,DEPLOY_BACKUP_IMAGE,GHCR_USERNAME,GHCR_PAT
           script: |
             cd ~/zombie-survival-server
