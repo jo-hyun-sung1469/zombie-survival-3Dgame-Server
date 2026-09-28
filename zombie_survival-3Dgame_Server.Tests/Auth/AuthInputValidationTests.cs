@@ -84,7 +84,7 @@ public sealed class AuthInputValidationTests
 
     [Theory]
     [InlineData("Abc12/")]
-    [InlineData("!@#$%^*-=+?/")]
+    [InlineData("!@#$%^*?/")]
     [InlineData("abcdef")]
     [InlineData("ABCDEF")]
     [InlineData("123456")]
@@ -117,6 +117,9 @@ public sealed class AuthInputValidationTests
     [InlineData("Abc12.")]
     [InlineData("Abc12,")]
     [InlineData("Abc12_")]
+    [InlineData("Abc12-")]
+    [InlineData("Abc12=")]
+    [InlineData("Abc12+")]
     [InlineData("Abc12(")]
     [InlineData("Abc12)")]
     [InlineData("Abc12<")]
@@ -167,7 +170,7 @@ public sealed class AuthInputValidationTests
     public void Validate_LegacyLogin_DoesNotApplyRegistrationCharacterRules()
     {
         // Given
-        var request = new LoginRequest { UserName = "Legacy_Player", Password = "example 기존 password._()" };
+        var request = new LoginRequest { UserName = "Legacy_Player", Password = "example 기존 password._()-=+" };
 
         // When
         var errors = Validate(request);

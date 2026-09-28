@@ -9,6 +9,6 @@ public static class AuthInputRules
 
     public const int PasswordMinLength = 6;
     public const int PasswordMaxLength = 100;
-    public const string PasswordPattern = @"\A[A-Za-z0-9!@#$%^*+=?/\-]+\z";
-    public const string PasswordError = "Password may contain only English letters, digits, and !@#$%^*-=+?/ characters.";
+    public const string PasswordPattern = @"\A[A-Za-z0-9!@#$%^*?/]+\z";
+    public const string PasswordError = "Password may contain only English letters, digits, and !@#$%^*?/ characters.";
 }

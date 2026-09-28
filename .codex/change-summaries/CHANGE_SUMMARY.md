@@ -2,6 +2,14 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-09-28 - 회원가입 비밀번호 허용 문자 축소
+
+- 목적: 사용자 요청에 따라 비밀번호 허용 문자에서 `-`, `=`, `+`를 제외했습니다.
+- 변경 영역: `Contracts/Auth/AuthInputRules.cs`, `Auth/AuthInputValidationTests.cs`, `.codex/change-summaries/CHANGE_SUMMARY.md`.
+- 반영 내용: 회원가입 비밀번호 정규식과 오류 안내를 수정하고, 세 기호의 거절 및 나머지 허용 문자와 기존 로그인 호환성을 검증하는 테스트 데이터를 갱신했습니다. 허용 특수문자는 `!@#$%^*?/`입니다.
+- 검증: `dotnet build --configuration Release --no-restore`가 경고·오류 없이 통과했고, Auth 테스트 90개가 모두 통과했습니다. `git diff --check`도 통과했습니다. 실제 서버 기동 및 HTTP 통합 검증은 수행하지 않았습니다.
+- 남은 사용자 결정: 없음.
+
 ## 2026-08-02 - 운영·개발 CI/CD 독립 분리
 
 - 목적: 운영 배포와 개발 배포 검증의 책임을 분리하고, 각 CI와 CD를 GitHub Actions에서 독립 실행 이력으로 확인할 수 있도록 구성했습니다.
