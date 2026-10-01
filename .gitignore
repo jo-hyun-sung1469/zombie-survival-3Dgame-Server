@@ -11,3 +11,4 @@
 app.env
 deployment.env
 deployment/backups/
+docs/learning/signup-username-precheck.md
