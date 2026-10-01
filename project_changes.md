@@ -1,10 +1,18 @@
-원래는 프롬포트에 작성해 Planning 모드를 사용해 계획을 수립하고 개발하지만 더욱 자세하게 서술하는데 한계가 있어서 project_changes를 만들게 되었다
+이 서버의 핵심 로직인 보상로직을 제작해야 한다
+보상로직은 골드라는 제화를 제공합니다(Gacha, Player&Weapon스텟 강화에 사용하는 재화)
+(제작 이유는 플레이어가 기능을 사용하기 위한 재화를 수급하기 위해서 제작합니다)
 
-그렇기에 스킬에 project_changes를 확인하고 수립한 구현 계획을 change_planning에 작성하도록 명시해야한다
+아래 내용을 바탕으로 계획을 수립하고 더 나은 방향성을 제시해주세요
 
 ## 원하는 구조
-- project_changes를 확인하고 change_planning에서 제작한다
+- 서비스 기능에서 보상의 계산기능은 따로 분리 해주세요
+  - 이유는 보상을 수여하고 저장하는 기능이랑 다르기 때문
+- 계산기능: (int)(survivalTime * 3 + clearWave * 100 + Killzombies * 5) (단 survivalTime은 최대 2000초이다)
+  - int로 캐스팅한 이유: int값으로 결과 출력 -> 보상 수여 & 계산을 쉽게 하기 위해서
+- 또한 계산할떄의 각 배율을 RewardConstants로 묶어서 관리해주세요 
+  - 이유는 밸런스 조절시 수월하게 조정하기 위해서
 
 ## 참고할 사항
-- 커밋할때 #1번으로 커밋하기
-- change_planning에도 작성할 필요가 없다
+- 커밋할때 #29번으로 커밋하기
+- https://app.notion.com/p/3ca86eaf14b8802ebae1df622350ff16?source=copy_link
+  (보상 로직을 풀어쓴 노션)
