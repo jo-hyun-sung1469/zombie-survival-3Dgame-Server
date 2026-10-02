@@ -11,3 +11,7 @@
 app.env
 deployment.env
 deployment/backups/
+cd
+scp
+set
+.codex/config.toml
