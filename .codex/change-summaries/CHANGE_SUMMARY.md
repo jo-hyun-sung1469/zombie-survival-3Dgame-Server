@@ -2,6 +2,15 @@
 
 하네스, 워크플로, 또는 여러 파일에 걸친 구현 변경을 한눈에 확인하기 위한 기록입니다.
 
+## 2026-09-26 - Codex 터미널 마우스 입력 및 PowerShell 훅 창 표시 보정
+
+- 목적: Rider 터미널에서 마우스 이벤트가 문자로 입력되는 현상에 대한 우회 설정을 기본값으로 저장하고, 자동 훅 실행 시 표시되는 PowerShell 창을 숨기도록 변경했습니다.
+- 변경 영역: 개인 `~/.codex/config.toml`의 `[tui] alternate_screen = "never"`, `.codex/hooks.json`의 Windows 명령 6개, 이 변경 요약. 개인 설정 원본은 별도 백업했습니다.
+- 반영 내용: Windows 훅 실행에 `-NonInteractive -WindowStyle Hidden`을 추가했습니다. 훅 검사 내용, 입출력 연결, 이벤트와 타임아웃, 활성화 여부, 저장된 신뢰 해시는 변경하지 않았습니다.
+- 원인 확인: 프로세스 관찰에서 Codex 앱 서버가 실행한 `pre_tool_guard.ps1`·`post_tool_audit.ps1`의 바깥쪽 PowerShell에 표시된 창이 확인됐습니다. 일반 명령 실행용 PowerShell에는 표시된 창이 잡히지 않았습니다.
+- 검증: 개인 설정 재조회·Codex 설정 로딩, 훅 JSON의 Windows 옵션 외 동일성, 자체 검사 3개, Windows 명령의 안전 입력 허용·위험 입력 거부 JSON 및 정상 종료, 프롬프트 훅의 변경 전후 출력 동일성, `git diff --check`를 확인했습니다. `subagent_stop_audit`·`stop_quality_gate` 자체 검사 2개는 기존 Windows PowerShell 인코딩/파싱 오류로 실패했으며, 원래 실행 옵션에서도 동일하게 실패하고 해당 스크립트가 변경되지 않았음을 확인했습니다.
+- 남은 사용자 결정 및 확인: 변경된 훅 정의는 Codex `/hooks`에서 재검토·신뢰 승인이 필요합니다. Codex 재시작 후 일반 실행에서 마우스 증상이 사라지는지와 창 표시 여부를 확인해야 합니다. 바깥쪽 PowerShell 창이 먼저 생성되는 Codex 실행기 특성상 시작 순간의 짧은 점멸까지 제거됐다고 단정할 수 없습니다.
+
 ## 2026-08-26 - 공개 서버 배포 후속 보강
 
 - 목적: 개발 검증과 운영 배포를 분리한 상태에서 DuckDNS 공개 서버를 안전하게 갱신하고, 실패한 운영 배포를 이전 상태로 복구할 수 있도록 마무리했습니다.
