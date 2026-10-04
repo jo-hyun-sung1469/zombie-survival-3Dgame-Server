@@ -14,9 +14,11 @@ using zombie_survival_3Dgame_Server.Data;
 using zombie_survival_3Dgame_Server.Firearm;
 using zombie_survival_3Dgame_Server.Firearm.Configuration;
 using zombie_survival_3Dgame_Server.Gacha;
+using zombie_survival_3Dgame_Server.GameSession;
 using zombie_survival_3Dgame_Server.Inventory;
 using zombie_survival_3Dgame_Server.Options;
 using zombie_survival_3Dgame_Server.Player;
+using zombie_survival_3Dgame_Server.Reward;
 using zombie_survival_3Dgame_Server.WeaponUpgrade;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -174,6 +176,11 @@ builder.Services.AddScoped<IFirearmService, FirearmService>();
 builder.Services.AddScoped<IWeaponUpgradeService, WeaponUpgradeService>();
 builder.Services.AddScoped<IPlayerService, PlayerService>();
 builder.Services.AddScoped<IPlayerStatUpgradeService, PlayerStatUpgradeService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<ISurvivalRewardService, SurvivalRewardService>();
+builder.Services.AddScoped<SurvivalGameSessionService>();
+builder.Services.AddScoped<IGameSessionService>(services => services.GetRequiredService<SurvivalGameSessionService>());
+builder.Services.AddScoped<IServerGameSessionRecorder>(services => services.GetRequiredService<SurvivalGameSessionService>());
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
