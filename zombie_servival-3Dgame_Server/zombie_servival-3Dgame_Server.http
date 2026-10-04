@@ -1,4 +1,5 @@
 @zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
+@sessionId = replace-with-server-created-session-id
 
 ### Username availability is a snapshot, not a reservation. Invalid input returns 400.
 GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/username-availability?userName=player1
@@ -112,6 +113,46 @@ Authorization: Bearer {{accessToken}}
 
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/weapon-upgrades/Shotgun
 Authorization: Bearer {{accessToken}}
+
+###
+
+# Start once per game and copy response.sessionId into the sessionId variable.
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/game-sessions
+Authorization: Bearer {{accessToken}}
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/game-sessions/{{sessionId}}
+Authorization: Bearer {{accessToken}}
+
+###
+
+# Submit the game result. Retry with this same sessionId and body.
+# The server does not verify the truth of these client-reported statistics.
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/rewards/survival
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "sessionId": "{{sessionId}}",
+  "survivalTime": 120.5,
+  "clearWave": 3,
+  "killZombies": 40
+}
+
+###
+
+# Replay: alreadyClaimed=true, no additional gold.
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/rewards/survival
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "sessionId": "{{sessionId}}",
+  "survivalTime": 120.5,
+  "clearWave": 3,
+  "killZombies": 40
+}
 
 ###
 
