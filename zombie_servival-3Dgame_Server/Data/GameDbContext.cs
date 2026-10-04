@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using zombie_survival_3Dgame_Server.Auth.Models;
 using zombie_survival_3Dgame_Server.Firearm.Models;
+using zombie_survival_3Dgame_Server.GameSession.Models;
 using zombie_survival_3Dgame_Server.Inventory.Models;
 using zombie_survival_3Dgame_Server.Player.Models;
 
@@ -9,6 +10,7 @@ namespace zombie_survival_3Dgame_Server.Data;
 public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbContext(options)
 {
     public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<SurvivalGameSession> SurvivalGameSessions => Set<SurvivalGameSession>();
     public DbSet<AuthVerificationCode> AuthVerificationCodes => Set<AuthVerificationCode>();
     public DbSet<PlayerSaveData> PlayerSaveData => Set<PlayerSaveData>();
     public DbSet<PlayerWeaponState> PlayerWeaponStates => Set<PlayerWeaponState>();
@@ -17,6 +19,19 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<SurvivalGameSession>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.PlayerId).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.ActivePlayerId).HasMaxLength(64);
+            entity.HasIndex(x => x.ActivePlayerId).IsUnique();
+            entity.HasIndex(x => new { x.PlayerId, x.StartedAtUtc });
+            entity.Property(x => x.Version).IsConcurrencyToken().IsRequired();
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<AppUser>(entity =>
         {
             entity.HasKey(x => x.Id);
