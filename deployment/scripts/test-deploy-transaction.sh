@@ -295,6 +295,8 @@ create_scenario() {
     'MYSQL_DATABASE=zombie_survival' \
     'MYSQL_USER=zombie_app' \
     'MYSQL_PASSWORD=mock-password' \
+    'SMTP_USERNAME=sender@example.invalid' \
+    'SMTP_PASSWORD=mock-smtp-password' \
     "BACKUP_ENABLED=${backup_enabled}" \
     'APP_DOMAIN=zombie-survival-3d-game.duckdns.org' \
     'APP_SCHEME=https' \
@@ -436,6 +438,32 @@ run_deploy "$success_workspace" "$secondary_stage" prepare candidate-app:3 candi
 run_deploy "$success_workspace" "$secondary_stage" confirm candidate-app:3 candidate-backup:3 >/dev/null
 assert_equals candidate-app:3 "$(awk -F= '$1 == "APP_IMAGE" { print $2 }' "${success_workspace}/deployment.env")" "다음 배포가 확정되지 않았습니다"
 assert_backups_preserved "$success_workspace" "$success_backup_inode"
+
+manual_workspace="$(create_scenario manual-deployment)"
+rm "${manual_workspace}/deployment.env"
+cp "${manual_workspace}/app.env" "${manual_workspace}/expected-app.env"
+run_deploy "$manual_workspace" "$primary_stage" prepare >/dev/null
+if [[ -e "${manual_workspace}/deployment.env" ]]; then
+  echo "수동 배포 전환에서 외부 검증 전에 deployment.env가 생성되었습니다." >&2
+  exit 1
+fi
+run_deploy "$manual_workspace" "$primary_stage" confirm >/dev/null
+assert_equals candidate-app:2 "$(awk -F= '$1 == "APP_IMAGE" { print $2 }' "${manual_workspace}/deployment.env")" "첫 CD가 앱 이미지를 기록하지 않았습니다"
+assert_equals 600 "$(stat -c '%a' "${manual_workspace}/deployment.env")" "첫 deployment.env 권한이 0600이 아닙니다"
+cmp "${manual_workspace}/expected-app.env" "${manual_workspace}/app.env" >/dev/null
+
+manual_rollback_workspace="$(create_scenario manual-deployment-rollback)"
+manual_rollback_inode="$(backup_inode "$manual_rollback_workspace")"
+rm "${manual_rollback_workspace}/deployment.env"
+cp "${manual_rollback_workspace}/app.env" "${manual_rollback_workspace}/expected-app.env"
+run_deploy "$manual_rollback_workspace" "$primary_stage" prepare >/dev/null
+run_deploy "$manual_rollback_workspace" "$primary_stage" rollback >/dev/null 2>&1
+assert_rolled_back "$manual_rollback_workspace" "$manual_rollback_inode"
+if [[ -e "${manual_rollback_workspace}/deployment.env" ]]; then
+  echo "첫 CD 롤백 후 기존에 없던 deployment.env가 남았습니다." >&2
+  exit 1
+fi
+cmp "${manual_rollback_workspace}/expected-app.env" "${manual_rollback_workspace}/app.env" >/dev/null
 
 for failure_kind in app caddy proxy; do
   failure_workspace="$(create_scenario "failure-${failure_kind}")"
