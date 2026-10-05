@@ -16,3 +16,4 @@ cd
 scp
 set
 .codex/config.toml
+docs/   
