@@ -366,3 +366,15 @@
   - 컨테이너 롤백으로 되돌릴 수 없는 축소형 EF Migration을 CI에서 거부하고 정책·설정·트랜잭션·DuckDNS 테스트를 개발/메인 CI에 연결했습니다.
 - 검증: .NET 10 Release 빌드(경고·오류 0), 자동 테스트 7개, actionlint, ShellCheck, Linux Bash 기반 Migration 정책·배포 설정·트랜잭션/백업 롤백·DuckDNS 테스트, Docker Compose 렌더링, 고정 digest Caddy 설정 검증과 `git diff --check`를 통과했습니다.
 - 남은 사용자 결정: 실제 인증서 발급과 외부 HTTPS 접속을 위해 공유기 TCP 80/443 포트포워딩 및 Ubuntu DuckDNS 토큰 등록을 완료한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
+
+## 2026-10-05 - AWS EC2 직접 SSH CD와 운영 절차 정리
+
+- 목적: 실제 운영 중인 AWS EC2 Ubuntu 서버와 Gmail 인증 복구 결과에 맞춰 자동 배포 및 운영 안내를 정리합니다.
+- 변경 영역: `.github/workflows/Main-CD.yml`, `deployment/scripts/test-deploy-transaction.sh`, `deployment/README.md`, `README.md`.
+- 반영 내용:
+  - 사용자 선택에 따라 Tailscale 접속을 제거하고 호스트 키 지문을 검증하는 EC2 직접 SSH로 전환합니다. 배포 실행기 라벨은 `DEPLOY_RUNNER`로 지정할 수 있으며 기본값은 `ubuntu-latest`입니다.
+  - 업로드 전에 EC2의 기존 `app.env` 소유권·0600 권한, Docker 접근, Compose와 `flock`을 확인합니다. 운영 비밀값은 서버에 유지합니다.
+  - `deployment.env`가 없는 수동 배포 서버의 첫 CD 성공·롤백 및 SMTP를 포함한 `app.env` 보존 회귀 테스트를 추가합니다.
+  - EC2 보안 그룹·공개 주소·GitHub Secret 설정과 SMTP 앱 비밀번호 변경 후 현재 이미지로 재생성하는 절차를 문서화합니다.
+- 검증: Linux 임시 복사본에서 전체 Bash 구문, 배포 설정·트랜잭션/롤백·DuckDNS·Migration 정책 테스트를 통과했습니다. actionlint 1.7.12의 전체 워크플로·내장 ShellCheck 검사, 추가한 회귀 테스트의 ShellCheck와 `git diff --check`도 통과했습니다. 사용자가 운영 앱·DB 상태와 Gmail 인증 복구 후 이메일 코드 전송 성공을 확인했으며, 변경된 CD 자체의 EC2 실행은 아직 검증하지 않았습니다.
+- 남은 사용자 결정: 접속 방식은 EC2 직접 SSH로 확정했습니다. 운영 적용 전 실행기 출발지의 TCP 22 접근과 GitHub production 설정을 확인해야 합니다.
