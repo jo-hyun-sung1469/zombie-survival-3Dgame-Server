@@ -56,6 +56,11 @@ while IFS= read -r migration_file; do
       remaining = up_method
       gsub(/[[:space:]]/, "", remaining)
 
+      if (FILENAME !~ /_InitialCreate\.cs$/ \
+          && remaining ~ /migrationBuilder\.CreateIndex\([^;]*unique:true/) {
+        printf "%s: 최초 Migration 이후 UNIQUE 인덱스 추가는 구버전 쓰기와 호환성을 별도 검증해야 합니다.\n", FILENAME
+      }
+
       while (match(remaining, /migrationBuilder\.[A-Za-z_][A-Za-z0-9_]*(<[^<>]+>)?\(/)) {
         call = substr(remaining, RSTART, RLENGTH)
 
@@ -63,7 +68,9 @@ while IFS= read -r migration_file; do
           printf "%s: Up()에 축소형 또는 임의 SQL 작업이 있습니다: %s\n", FILENAME, call
         } else if (call ~ /^migrationBuilder\.AlterDatabase\($/ && FILENAME !~ /_InitialCreate\.cs$/) {
           printf "%s: AlterDatabase는 최초 Migration에서만 허용합니다: %s\n", FILENAME, call
-        } else if (call !~ /^migrationBuilder\.(AddColumn|AddForeignKey|AddPrimaryKey|AddUniqueConstraint|AddCheckConstraint|CreateTable|CreateIndex|CreateSequence|EnsureSchema|InsertData|AlterDatabase)(<[^<>]+>)?\($/) {
+        } else if (call ~ /^migrationBuilder\.(AddForeignKey|AddPrimaryKey|AddUniqueConstraint|AddCheckConstraint)\($/) {
+          printf "%s: 기존 테이블 제약 강화는 expand-first 검사에서 허용하지 않습니다: %s\n", FILENAME, call
+        } else if (call !~ /^migrationBuilder\.(AddColumn|CreateTable|CreateIndex|CreateSequence|EnsureSchema|InsertData|AlterDatabase)(<[^<>]+>)?\($/) {
           printf "%s: Up()에서 검증할 수 없는 MigrationBuilder 호출이 있습니다: %s\n", FILENAME, call
         }
 

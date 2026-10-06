@@ -21,6 +21,7 @@ protected
     )
 {
     migrationBuilder.AddColumn<int>(name: "Level", table: "Players", nullable: false, defaultValue: 0);
+    migrationBuilder.CreateIndex(name: "IX_Level", table: "Players", column: "Level", unique: false);
 
     migrationBuilder.CreateTable(
         name: "PlayerProfiles",
@@ -53,6 +54,7 @@ cat > "$initial_migration" <<'EOF'
 protected override void Up(MigrationBuilder migrationBuilder)
 {
     migrationBuilder.AlterDatabase();
+    migrationBuilder.CreateIndex(name: "IX_Name", table: "Players", column: "Name", unique: true);
 }
 
 protected override void Down(MigrationBuilder migrationBuilder)
@@ -74,6 +76,11 @@ declare -a forbidden_cases=(
   'CustomCreate|migrationBuilder.CreateUnsafeTable(name: "Players");'
   'UnknownAdd|migrationBuilder.AddUnsafeConstraint(name: "Unsafe");'
   'NonInitialAlterDatabase|migrationBuilder.AlterDatabase();'
+  'AddForeignKey|migrationBuilder.AddForeignKey(name: "FK_Profiles", table: "Players", column: "ProfileId", principalTable: "Profiles", principalColumn: "Id");'
+  'AddPrimaryKey|migrationBuilder.AddPrimaryKey(name: "PK_Players", table: "Players", column: "Id");'
+  'AddUniqueConstraint|migrationBuilder.AddUniqueConstraint(name: "UQ_Name", table: "Players", column: "Name");'
+  'AddCheckConstraint|migrationBuilder.AddCheckConstraint(name: "CK_Level", table: "Players", sql: "Level > 0");'
+  'UniqueIndex|migrationBuilder.CreateIndex(name: "IX_Name", table: "Players", column: "Name", unique: true);'
 )
 
 unsafe_migration="${temporary_directory}/20260819000001_UnsafeOperation.cs"
