@@ -2,6 +2,16 @@
 
 ### Username availability is a snapshot, not a reservation. Invalid input returns 400.
 GET {{zombie_servival_3Dgame_Server_HostAddress}}/api/auth/register/username-availability?userName=player1
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/live
+Accept: application/json
+
+###
+
+GET {{zombie_servival_3Dgame_Server_HostAddress}}/health
+Accept: application/json
 Accept: application/json
 
 ###

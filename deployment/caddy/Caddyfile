@@ -1,0 +1,37 @@
+{
+	admin 127.0.0.1:2019
+}
+
+http://127.0.0.1:2018 {
+	handle /live {
+		reverse_proxy app:8080
+	}
+
+	handle {
+		respond 404
+	}
+}
+
+{$APP_SCHEME}://{$APP_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	log {
+		output stdout
+		format json
+	}
+
+	@database_health path_regexp databaseHealth (?i)^/health(?:/.*)?$
+	handle @database_health {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy app:8080
+	}
+}

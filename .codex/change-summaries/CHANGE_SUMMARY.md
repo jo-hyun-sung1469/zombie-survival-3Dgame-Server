@@ -9,6 +9,22 @@
 - 반영 내용: 회원가입 비밀번호 정규식과 오류 안내를 수정하고, 세 기호의 거절 및 나머지 허용 문자와 기존 로그인 호환성을 검증하는 테스트 데이터를 갱신했습니다. 허용 특수문자는 `!@#$%^*?/`입니다.
 - 검증: `dotnet build --configuration Release --no-restore`가 경고·오류 없이 통과했고, Auth 테스트 90개가 모두 통과했습니다. `git diff --check`도 통과했습니다. 실제 서버 기동 및 HTTP 통합 검증은 수행하지 않았습니다.
 - 남은 사용자 결정: 없음.
+## 2026-09-26 - Codex 터미널 마우스 입력 및 PowerShell 훅 창 표시 보정
+
+- 목적: Rider 터미널에서 마우스 이벤트가 문자로 입력되는 현상에 대한 우회 설정을 기본값으로 저장하고, 자동 훅 실행 시 표시되는 PowerShell 창을 숨기도록 변경했습니다.
+- 변경 영역: 개인 `~/.codex/config.toml`의 `[tui] alternate_screen = "never"`, `.codex/hooks.json`의 Windows 명령 6개, 이 변경 요약. 개인 설정 원본은 별도 백업했습니다.
+- 반영 내용: Windows 훅 실행에 `-NonInteractive -WindowStyle Hidden`을 추가했습니다. 훅 검사 내용, 입출력 연결, 이벤트와 타임아웃, 활성화 여부, 저장된 신뢰 해시는 변경하지 않았습니다.
+- 원인 확인: 프로세스 관찰에서 Codex 앱 서버가 실행한 `pre_tool_guard.ps1`·`post_tool_audit.ps1`의 바깥쪽 PowerShell에 표시된 창이 확인됐습니다. 일반 명령 실행용 PowerShell에는 표시된 창이 잡히지 않았습니다.
+- 검증: 개인 설정 재조회·Codex 설정 로딩, 훅 JSON의 Windows 옵션 외 동일성, 자체 검사 3개, Windows 명령의 안전 입력 허용·위험 입력 거부 JSON 및 정상 종료, 프롬프트 훅의 변경 전후 출력 동일성, `git diff --check`를 확인했습니다. `subagent_stop_audit`·`stop_quality_gate` 자체 검사 2개는 기존 Windows PowerShell 인코딩/파싱 오류로 실패했으며, 원래 실행 옵션에서도 동일하게 실패하고 해당 스크립트가 변경되지 않았음을 확인했습니다.
+- 남은 사용자 결정 및 확인: 변경된 훅 정의는 Codex `/hooks`에서 재검토·신뢰 승인이 필요합니다. Codex 재시작 후 일반 실행에서 마우스 증상이 사라지는지와 창 표시 여부를 확인해야 합니다. 바깥쪽 PowerShell 창이 먼저 생성되는 Codex 실행기 특성상 시작 순간의 짧은 점멸까지 제거됐다고 단정할 수 없습니다.
+
+## 2026-08-26 - 공개 서버 배포 후속 보강
+
+- 목적: 개발 검증과 운영 배포를 분리한 상태에서 DuckDNS 공개 서버를 안전하게 갱신하고, 실패한 운영 배포를 이전 상태로 복구할 수 있도록 마무리했습니다.
+- 변경 영역: Development/Main CI·CD, Caddy·Compose, DuckDNS updater, 배포 트랜잭션·Migration 검사, 상태 확인 API와 운영 문서.
+- 반영 내용: 개발 CI/CD는 `develop`·`release` push와 PR에서 각각 코드 검증과 일회성 배포 검증을 수행합니다. Main CD는 최신 `main` CI 이미지 digest만 고유 staging으로 전송하며, `/live` 외부 검증 실패 시 앱·프록시·백업 설정을 롤백하고 `deployment/backups`는 보존합니다.
+- 검증: .NET 10 Release 빌드와 자동 테스트 7개, EF pending-model 검사, Compose 렌더링, Bash 문법, expand-first Migration 정책과 `git diff --check`를 통과했습니다. Docker가 꺼진 Windows 환경에서 건너뛴 Linux 트랜잭션·DuckDNS·Caddy 기동 검증은 GitHub Actions에서 최종 확인해야 합니다.
+- 남은 사용자 결정: 공유기 TCP 80/443 포트포워딩과 Ubuntu DuckDNS 토큰·GitHub production Secret을 설정한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
 
 ## 2026-08-02 - 운영·개발 CI/CD 독립 분리
 
@@ -286,9 +302,16 @@
 - 검증: Docker Compose 렌더링, 외부 Action 40자리 SHA 고정 검사와 `git diff --check`가 통과했고, .NET 10 Release 빌드는 경고·오류 없이 완료됐으며 자동 테스트 7개가 모두 통과했습니다. 로컬 Docker 데몬 권한이 없어 이미지 아티팩트의 실제 save/load는 GitHub Actions에서 최종 확인해야 합니다.
 - 남은 사용자 결정: 없음.
 
+## 2026-08-12 - DuckDNS HTTPS 공개 접속 구성
+
+- 목적: 개인 Ubuntu 서버의 게임 API를 DuckDNS 도메인과 HTTPS로 다른 컴퓨터 및 게임 클라이언트에서 안전하게 사용할 수 있도록 구성했습니다.
+- 변경 영역: `compose.yaml`, `app.env.example`, `deployment/caddy/Caddyfile`, `deployment/scripts/deploy.sh`, GitHub CI/CD 워크플로, `deployment/README.md`.
+- 반영 내용: Caddy 역방향 프록시와 인증서 영구 볼륨, 자동 배포·상태 확인을 추가하고 개발 CD에서 HTTP 프록시까지 일회성 검증하도록 했습니다. `zombie-survival-3d-game.duckdns.org`의 IP 갱신, Ubuntu 방화벽, 공유기 포트포워딩 및 외부 검증 절차도 문서화했습니다.
+- 검증: Docker Compose 렌더링, 공식 Caddy 이미지의 Caddyfile 검증, Ubuntu 기준 Bash 구문, 외부 Action SHA 고정 및 `git diff --check`가 통과했습니다. .NET 10 Release 빌드는 경고·오류 없이 완료됐고 자동 테스트 7개가 모두 통과했습니다. 실제 인증서 발급과 외부 HTTPS 접속은 포트포워딩 후 확인해야 합니다.
+- 남은 사용자 결정: 공유기 TCP 80/443 포트포워딩과 DuckDNS 토큰 등록은 개인 네트워크에서 직접 설정해야 합니다.
+
 ## 2026-09-18 - 회원가입 문자 검증 및 중복·동시성 처리 개선
 
-- 목적: `Project_Change.md`의 요구사항을 반영해 닉네임 사전 중복 조회, 닉네임·이메일 중복 사유 구분, 입력 문자 제한과 실패 후 이메일 인증 재사용을 보장했습니다.
 - 변경 영역: Auth 서비스·컨트롤러·결과 타입, Contracts/Auth DTO·공통 입력 규칙, 중복 DB 오류 판별, 요청 제한, 인증 테스트, HTTP 예제, MySQL 스모크 스크립트, `Project_Change_Plan.md`.
 - 반영 내용:
   - 익명 `GET /api/auth/register/username-availability`를 추가하고 IP별 분당 30회 제한 및 캐시 방지를 적용했습니다.
@@ -332,3 +355,46 @@
 - 검증: Release 빌드 경고·오류 0개, 자동 테스트 94개 통과, 수정된 이미지로 격리된 MySQL 회원가입 스모크 56개 항목 통과, `git diff --check` 통과.
 - 검증 범위: MySQL 스모크는 인증 완료 자료를 사용하며 실제 SMTP 발송은 포함하지 않습니다. EF 모델·API 계약 변경은 없습니다.
 - 남은 사용자 결정: 없음. 사용자 요청에 따라 기존 보안 보강과 인증 저장 방식 변경은 보류했습니다. 커밋·push·운영 배포는 수행하지 않았습니다.
+## 2026-08-19 - 공개 배포 CI/CD와 롤백 보안 강화
+
+- 변경 영역: Main/Development CI·CD, `Program.cs`, Dockerfile과 Compose, Caddy, DuckDNS updater, 배포·Migration 검증 스크립트, 운영 문서.
+- 반영 내용:
+  - DB readiness `/health`와 공개 liveness `/live`를 분리하고, Caddy는 공개 `/health`를 404로 차단하며 고정된 RFC1918 `/24`~`/29` 프록시 대역만 신뢰하도록 했습니다.
+  - Main CD는 오래된 CI 실행을 건너뛰고 SHA 태그를 게시한 뒤 RepoDigest로 배포하며, 실행 중 바이너리를 내려받는 SSH Action 대신 호스트 지문을 검증한 기본 OpenSSH를 사용합니다.
+  - `prepare → 외부 HTTPS 검사 → confirm/rollback` 트랜잭션에 전체 `deployment/`, Compose, 앱·Caddy·백업 컨테이너와 frontend 네트워크 복구를 포함하고, 오래된 잠금 자동 회수와 멱등 롤백을 추가했습니다.
+  - MySQL·Caddy·.NET·AWS CLI 기반 이미지를 digest로 고정하고, DuckDNS 토큰의 argv 노출 방지·실행 제한 시간·중복 실행 잠금을 적용했습니다.
+  - 컨테이너 롤백으로 되돌릴 수 없는 축소형 EF Migration을 CI에서 거부하고 정책·설정·트랜잭션·DuckDNS 테스트를 개발/메인 CI에 연결했습니다.
+- 검증: .NET 10 Release 빌드(경고·오류 0), 자동 테스트 7개, actionlint, ShellCheck, Linux Bash 기반 Migration 정책·배포 설정·트랜잭션/백업 롤백·DuckDNS 테스트, Docker Compose 렌더링, 고정 digest Caddy 설정 검증과 `git diff --check`를 통과했습니다.
+- 남은 사용자 결정: 실제 인증서 발급과 외부 HTTPS 접속을 위해 공유기 TCP 80/443 포트포워딩 및 Ubuntu DuckDNS 토큰 등록을 완료한 뒤 모바일 네트워크에서 `/live`를 확인해야 합니다.
+
+## 2026-10-05 - AWS EC2 직접 SSH CD와 운영 절차 정리
+
+- 목적: 실제 운영 중인 AWS EC2 Ubuntu 서버와 Gmail 인증 복구 결과에 맞춰 자동 배포 및 운영 안내를 정리합니다.
+- 변경 영역: `.github/workflows/Main-CD.yml`, `deployment/scripts/test-deploy-transaction.sh`, `deployment/README.md`, `README.md`.
+- 반영 내용:
+  - 사용자 선택에 따라 Tailscale 접속을 제거하고 호스트 키 지문을 검증하는 EC2 직접 SSH로 전환합니다. 배포 실행기 라벨은 `DEPLOY_RUNNER`로 지정할 수 있으며 기본값은 `ubuntu-latest`입니다.
+  - 업로드 전에 EC2의 기존 `app.env` 소유권·0600 권한, Docker 접근, Compose와 `flock`을 확인합니다. 운영 비밀값은 서버에 유지합니다.
+  - `deployment.env`가 없는 수동 배포 서버의 첫 CD 성공·롤백 및 SMTP를 포함한 `app.env` 보존 회귀 테스트를 추가합니다.
+  - EC2 보안 그룹·공개 주소·GitHub Secret 설정과 SMTP 앱 비밀번호 변경 후 현재 이미지로 재생성하는 절차를 문서화합니다.
+- 검증: Linux 임시 복사본에서 전체 Bash 구문, 배포 설정·트랜잭션/롤백·DuckDNS·Migration 정책 테스트를 통과했습니다. actionlint 1.7.12의 전체 워크플로·내장 ShellCheck 검사, 추가한 회귀 테스트의 ShellCheck와 `git diff --check`도 통과했습니다. 사용자가 운영 앱·DB 상태와 Gmail 인증 복구 후 이메일 코드 전송 성공을 확인했으며, 변경된 CD 자체의 EC2 실행은 아직 검증하지 않았습니다.
+- 남은 사용자 결정: 접속 방식은 EC2 직접 SSH로 확정했습니다. 운영 적용 전 실행기 출발지의 TCP 22 접근과 GitHub production 설정을 확인해야 합니다.
+
+## 2026-10-06 - 회원가입 CI Production 프록시 설정 누락 수정
+
+- 목적: 격리된 회원가입 테스트 앱의 필수 프록시 CIDR 누락을 해결합니다.
+- 변경 영역: `deployment/scripts/test-auth-registration.ps1`, 이 변경 요약.
+- 반영 내용: 테스트 네트워크에 `172.29.0.0/24`를 지정하고 같은 변수를 `ReverseProxy__KnownNetworkCidr`로 전달합니다.
+- 검증: PowerShell 구문 검사, 빌드(경고·오류 0개), 스크립트 diff 검사 통과. Docker 엔진 미실행으로 컨테이너 스모크는 미실행입니다.
+- 남은 사용자 결정: 없음. CI 재실행 검증이 필요합니다. 커밋·push·운영 배포는 수행하지 않았습니다.
+
+## 2026-10-06 - 배포 코드리뷰 세 항목 보완
+
+- 목적: Docker 테스트 대역 충돌, 가변 태그 기반 롤백, 제약 강화 Migration의 자동 허용을 보완합니다.
+- 변경 영역: 회원가입 스모크 스크립트, 배포·롤백 스크립트와 회귀 테스트, Migration 정책과 회귀 테스트, 배포 문서.
+- 반영 내용:
+  - 회원가입 테스트는 임의의 RFC1918 IPv4 /24 대역을 시도하고 Docker 대역 충돌 시 최대 32회 재시도합니다. 생성에 성공한 동일 CIDR을 앱에 전달하고 다른 Docker 오류는 즉시 전달합니다.
+  - 이전 앱·백업의 실행 이미지 ID를 기록하고 롤백에서는 --pull never로 로컬 이미지만 사용합니다. 가변 태그와 이미지 ID가 다른 회귀 사례를 추가했습니다.
+  - 독립적인 FK·PK·UNIQUE·CHECK 추가와 최초 InitialCreate 이후 UNIQUE 인덱스를 보수적으로 차단합니다. 일반 인덱스 및 최초 UNIQUE 인덱스 허용 사례와 제약 강화 거부 사례를 검증합니다.
+- 검증: PowerShell 구문 및 네트워크 할당 검사(충돌 재시도·32회 소진·다른 오류 전달), Linux 임시 복사본의 Bash 구문·Migration 정책/회귀·전체 배포 트랜잭션/롤백 테스트 통과. 현재 Migration도 정책 검사를 통과했습니다.
+- 검증 범위: 실제 Docker 엔진이 실행되지 않아 실제 컨테이너 시작·EC2 롤백은 미검증입니다. 직전 리뷰의 기존 자동 테스트는 97개 통과했습니다.
+- 남은 사용자 결정: 없음. CI 재실행 검증이 필요합니다. 커밋·push·운영 배포는 수행하지 않았습니다.
