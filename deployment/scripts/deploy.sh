@@ -1033,7 +1033,7 @@ rollback_deployment() {
   if [[ "${PREVIOUS_APP_PRESENT:-false}" == "true" && -n "${PREVIOUS_APP_IMAGE:-}" ]]; then
     echo "이전 앱 이미지로 롤백합니다: ${PREVIOUS_APP_IMAGE}" >&2
     if ! APP_IMAGE="$PREVIOUS_APP_IMAGE" BACKUP_IMAGE="$rollback_backup_image" "${compose[@]}" up \
-      -d --no-deps --force-recreate app; then
+      -d --no-deps --pull never --force-recreate app; then
       rollback_failed="true"
     elif ! wait_for_health game-server 90; then
       docker logs --tail 200 game-server || true
@@ -1062,7 +1062,7 @@ rollback_deployment() {
   if [[ "$rollback_failed" == "false" && "${PREVIOUS_BACKUP_PRESENT:-false}" == "true" && -n "${PREVIOUS_BACKUP_IMAGE:-}" ]]; then
     echo "이전 백업 이미지로 롤백합니다: ${PREVIOUS_BACKUP_IMAGE}" >&2
     if ! APP_IMAGE="$rollback_app_image" BACKUP_IMAGE="$PREVIOUS_BACKUP_IMAGE" "${compose[@]}" up \
-      -d --no-deps --force-recreate backup; then
+      -d --no-deps --pull never --force-recreate backup; then
       rollback_failed="true"
     elif ! wait_for_running game-mysql-backup 30; then
       docker logs --tail 200 game-mysql-backup || true
@@ -1191,14 +1191,14 @@ prepare_deployment() {
   local frontend_migration_required="false"
   local active_backup_image="$DEPLOY_BACKUP_IMAGE"
 
-  previous_app_image="$(docker inspect -f '{{.Config.Image}}' game-server 2>/dev/null || true)"
+  previous_app_image="$(docker inspect -f '{{.Image}}' game-server 2>/dev/null || true)"
   if [[ -n "$previous_app_image" ]]; then
     previous_app_present="true"
   fi
   if container_exists game-caddy; then
     previous_caddy_present="true"
   fi
-  previous_backup_image="$(docker inspect -f '{{.Config.Image}}' game-mysql-backup 2>/dev/null || true)"
+  previous_backup_image="$(docker inspect -f '{{.Image}}' game-mysql-backup 2>/dev/null || true)"
   if [[ -n "$previous_backup_image" ]]; then
     previous_backup_present="true"
   fi

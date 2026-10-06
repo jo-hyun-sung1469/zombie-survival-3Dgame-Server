@@ -36,7 +36,7 @@ container_exists() {
 
 remove_container() {
   local name="$1"
-  rm -f "${state}/${name}.image" "${state}/${name}.health"
+  rm -f "${state}/${name}.image" "${state}/${name}.health" "${state}/${name}.image-id"
 }
 
 set_container() {
@@ -44,6 +44,7 @@ set_container() {
   local image="$2"
   local health="$3"
   printf '%s' "$image" > "${state}/${name}.image"
+  rm -f "${state}/${name}.image-id"
   printf '%s' "$health" > "${state}/${name}.health"
 }
 
@@ -81,6 +82,13 @@ case "$command_name" in
           fi
           ;;
         *Config.Image*) cat "${state}/${name}.image" ;;
+        '{{.Image}}')
+          if [[ -f "${state}/${name}.image-id" ]]; then
+            cat "${state}/${name}.image-id"
+          else
+            cat "${state}/${name}.image"
+          fi
+          ;;
         *com.docker.compose.service*)
           if [[ "$name" == "game-server" ]]; then
             printf 'app'
@@ -464,6 +472,16 @@ if [[ -e "${manual_rollback_workspace}/deployment.env" ]]; then
   exit 1
 fi
 cmp "${manual_rollback_workspace}/expected-app.env" "${manual_rollback_workspace}/app.env" >/dev/null
+
+image_id_workspace="$(create_scenario mutable-image-tag 172.29.0.0/24 false old-backup:1)"
+app_image_id="sha256:$(printf 'a%.0s' {1..64})"
+backup_image_id="sha256:$(printf 'b%.0s' {1..64})"
+printf '%s' "$app_image_id" > "${image_id_workspace}/mock-state/game-server.image-id"
+printf '%s' "$backup_image_id" > "${image_id_workspace}/mock-state/game-mysql-backup.image-id"
+run_deploy "$image_id_workspace" "$primary_stage" prepare >/dev/null
+run_deploy "$image_id_workspace" "$primary_stage" rollback >/dev/null 2>&1
+assert_equals "$app_image_id" "$(<"${image_id_workspace}/mock-state/game-server.image")" "롤백이 실행 이미지 ID 대신 가변 앱 태그를 사용했습니다"
+assert_equals "$backup_image_id" "$(<"${image_id_workspace}/mock-state/game-mysql-backup.image")" "롤백이 실행 이미지 ID 대신 가변 백업 태그를 사용했습니다"
 
 for failure_kind in app caddy proxy; do
   failure_workspace="$(create_scenario "failure-${failure_kind}")"
