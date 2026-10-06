@@ -106,6 +106,8 @@ Compose 내부의 `mysql` 서비스 연결은 격리된 backend 네트워크이�
 
 ## GitHub 설정
 
+Windows PC의 Ubuntu WSL을 배포 실행기로 사용하는 방법은 [PC 실행기 운영 안내](pc-runner.md)를 참고합니다. `DEPLOY_RUNNER=zombie-deploy-pc`를 Repository Variable로 설정하면 기존 Main CD 배포 잡이 해당 PC 실행기를 선택합니다.
+
 AWS EC2 배포에 사용하는 `production` Environment에 다음 Secret을 등록합니다.
 
 - `SSH_HOST`: EC2 공개 IPv4 또는 공개 DNS 이름

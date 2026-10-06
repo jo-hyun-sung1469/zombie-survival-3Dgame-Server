@@ -398,3 +398,19 @@
 - 검증: PowerShell 구문 및 네트워크 할당 검사(충돌 재시도·32회 소진·다른 오류 전달), Linux 임시 복사본의 Bash 구문·Migration 정책/회귀·전체 배포 트랜잭션/롤백 테스트 통과. 현재 Migration도 정책 검사를 통과했습니다.
 - 검증 범위: 실제 Docker 엔진이 실행되지 않아 실제 컨테이너 시작·EC2 롤백은 미검증입니다. 직전 리뷰의 기존 자동 테스트는 97개 통과했습니다.
 - 남은 사용자 결정: 없음. CI 재실행 검증이 필요합니다. 커밋·push·운영 배포는 수행하지 않았습니다.
+
+## 2026-10-06 - PC Ubuntu WSL 배포 실행기 연결
+
+- 목적: 추가 EC2 없이 사용자의 PC에서 Main CD를 실행해 GitHub 기본 실행기의 변동 IP로 인한 SSH 접근 실패를 해결합니다.
+- 변경 영역: GitHub 저장소 실행기·변수·외부 PR 승인 정책, PC Ubuntu WSL 실행기 설치, `deployment/pc-runner.md`, 배포 README.
+- 반영 내용: 공식 actions/runner v2.337.0 Linux x64 파일을 SHA256 검증 후 WSL 홈에 설치하고 `zombie-deploy-pc`로 등록했습니다. 전용 라벨만 사용하며 `DEPLOY_RUNNER`도 해당 값으로 변경했습니다. 공개 저장소 외부 PR 승인은 `all_external_contributors`로 강화했습니다. 실행기는 숨겨진 WSL 프로세스로 시작했으며 Windows 자동 시작은 설정하지 않았습니다.
+- 검증: 실행기 GitHub online·idle 상태, 배포 변수와 승인 정책 적용을 확인했습니다. PC WSL에서 운영 도메인 TCP 22 호스트 키 조회가 성공했습니다. `git diff --check`를 통과했습니다. 실제 배포 SSH_HOST 값의 도달·지문 비교와 배포 자체는 Main CD 재실행으로 확인해야 합니다.
+- 남은 사용자 결정: 없음. PC와 실행기가 실행 중이어야 CD가 진행되며 공인 IP 변경 시 AWS 보안 그룹을 갱신해야 합니다. 설정 안내 문서는 미커밋이며 운영 배포는 재실행하지 않았습니다.
+
+## 2026-10-06 - 운영 SSH 인증 복구와 PC CD 배포 검증
+
+- 목적: 유효한 개인 키를 입력한 뒤에도 발생한 Permission denied (publickey)를 복구합니다.
+- 변경 영역: GitHub production의 SSH_USER·SSH_KEY Secret, Main CD 재실행. 서버 코드 변경은 없습니다.
+- 반영 내용: 사용자가 지정한 PEM 원본으로 운영 도메인의 ubuntu 계정 SSH 로그인을 검증했습니다. 검증한 사용자명과 개인 키를 production Secret에 반영하고 실패한 Main CD를 재실행했습니다. 키 내용은 출력하지 않았으며 임시 복사본은 삭제했습니다.
+- 검증: 로컬 SSH 로그인, Main CD SSH 인증·EC2 환경 검사·후보 업로드·배포 준비·외부 HTTPS 검증·배포 확정 단계가 모두 통과했습니다.
+- 남은 사용자 결정: 없음. Secret은 두 값을 함께 검증된 조합으로 교체했으므로 기존 사용자명과 키 중 어느 하나가 단독 원인이었는지는 구분하지 않았습니다. PC 실행기가 실행 중인 동안 CD가 동작합니다.
