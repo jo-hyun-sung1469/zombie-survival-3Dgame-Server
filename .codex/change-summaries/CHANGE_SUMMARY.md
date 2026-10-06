@@ -378,3 +378,11 @@
   - EC2 보안 그룹·공개 주소·GitHub Secret 설정과 SMTP 앱 비밀번호 변경 후 현재 이미지로 재생성하는 절차를 문서화합니다.
 - 검증: Linux 임시 복사본에서 전체 Bash 구문, 배포 설정·트랜잭션/롤백·DuckDNS·Migration 정책 테스트를 통과했습니다. actionlint 1.7.12의 전체 워크플로·내장 ShellCheck 검사, 추가한 회귀 테스트의 ShellCheck와 `git diff --check`도 통과했습니다. 사용자가 운영 앱·DB 상태와 Gmail 인증 복구 후 이메일 코드 전송 성공을 확인했으며, 변경된 CD 자체의 EC2 실행은 아직 검증하지 않았습니다.
 - 남은 사용자 결정: 접속 방식은 EC2 직접 SSH로 확정했습니다. 운영 적용 전 실행기 출발지의 TCP 22 접근과 GitHub production 설정을 확인해야 합니다.
+
+## 2026-10-06 - 회원가입 CI Production 프록시 설정 누락 수정
+
+- 목적: 격리된 회원가입 테스트 앱의 필수 프록시 CIDR 누락을 해결합니다.
+- 변경 영역: `deployment/scripts/test-auth-registration.ps1`, 이 변경 요약.
+- 반영 내용: 테스트 네트워크에 `172.29.0.0/24`를 지정하고 같은 변수를 `ReverseProxy__KnownNetworkCidr`로 전달합니다.
+- 검증: PowerShell 구문 검사, 빌드(경고·오류 0개), 스크립트 diff 검사 통과. Docker 엔진 미실행으로 컨테이너 스모크는 미실행입니다.
+- 남은 사용자 결정: 없음. CI 재실행 검증이 필요합니다. 커밋·push·운영 배포는 수행하지 않았습니다.
