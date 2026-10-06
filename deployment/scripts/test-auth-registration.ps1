@@ -10,7 +10,6 @@ $resourcePrefix = "zombie-auth-smoke-$runId"
 $databaseContainer = "$resourcePrefix-db"
 $appContainer = "$resourcePrefix-app"
 $networkName = "$resourcePrefix-network"
-$networkCidr = '172.29.0.0/24'
 $databaseCredential = [Guid]::NewGuid().ToString('N')
 $rootCredential = [Guid]::NewGuid().ToString('N')
 $signingKey = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
@@ -42,6 +41,20 @@ function Invoke-TestSql([string]$Sql, [switch]$AsRoot) {
         --batch --skip-column-names --default-character-set=utf8mb4 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test SQL failed: $($output -join [Environment]::NewLine)" }
     ($output | ForEach-Object { $_.ToString() }) -join "`n"
+}
+
+function New-TestNetwork {
+    for ($attempt = 0; $attempt -lt 32; $attempt++) {
+        $cidr = '10.{0}.{1}.0/24' -f (Get-Random -Minimum 1 -Maximum 255), (Get-Random -Minimum 0 -Maximum 256)
+        try {
+            Invoke-Docker network create --label "auth_smoke_run=$runId" --subnet $cidr $networkName | Out-Null
+            return $cidr
+        }
+        catch {
+            if ($_.Exception.Message -notmatch 'Pool overlaps') { throw }
+        }
+    }
+    throw 'Could not allocate an isolated private /24 test network after 32 attempts.'
 }
 
 function Assert-That([bool]$Condition, [string]$Description) {
@@ -156,7 +169,7 @@ try {
         Write-Host 'Building an isolated test app image...'
         Invoke-Docker build --label "auth_smoke_run=$runId" --tag $AppImage --file (Join-Path $repoRoot 'Dockerfile') $repoRoot | Out-Null
     }
-    Invoke-Docker network create --label "auth_smoke_run=$runId" --subnet $networkCidr $networkName | Out-Null
+    $networkCidr = New-TestNetwork
     Invoke-Docker run --detach --name $databaseContainer --label "auth_smoke_run=$runId" `
         --network $networkName --network-alias mysql `
         -e "MYSQL_ROOT_PASSWORD=$rootCredential" -e MYSQL_DATABASE=auth_smoke `
