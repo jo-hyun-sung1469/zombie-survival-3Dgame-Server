@@ -199,6 +199,10 @@ docker logs --since 10m --tail 80 game-server
 
 CD와 운영 절차에서 `docker compose down -v`를 실행하지 마세요. 이 명령은 영구 MySQL 볼륨까지 삭제합니다.
 
+롤백은 배포 전 실행 중인 앱·백업 컨테이너의 불변 이미지 ID를 기록하고, 로컬 이미지만 사용합니다. 수동 배포에 사용한 태그가 다른 이미지를 가리키게 되어도 기록한 이미지로 복구합니다. 미확정 배포가 남아 있는 동안 이전 이미지를 정리하지 마세요.
+
+expand-first 검사는 독립적인 `AddForeignKey`, `AddPrimaryKey`, `AddUniqueConstraint`, `AddCheckConstraint` 호출과 최초 `InitialCreate` 이후의 UNIQUE 인덱스 추가를 보수적으로 차단합니다. 이런 작업은 기존 앱의 쓰기 요청과 호환성을 별도로 검증해야 합니다. 새 테이블의 제약은 `CreateTable` 안에서 정의하며, UNIQUE 인덱스를 후속 Migration에서 추가하는 경우에도 이 자동 검사는 통과하지 않습니다. 일반 인덱스와 최초 생성 Migration의 UNIQUE 인덱스는 허용합니다.
+
 ## Gmail 설정 변경과 이메일 전송 확인
 
 `POST /api/auth/register/email-code`에서 `Could not send signup verification code.`와 HTTP 503이 나오면 최근 `game-server` 로그를 확인합니다. `AuthenticateAsync`에서 Gmail `5.7.8 Username and Password not accepted`가 발생했다면 발신 Gmail 계정 인증이 거절된 것입니다. 요청 본문의 이메일은 수신자이며, Gmail 로그인에는 컨테이너의 `SmtpEmail__UserName`과 `SmtpEmail__Password`가 사용됩니다.
