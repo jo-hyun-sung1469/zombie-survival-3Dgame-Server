@@ -15,6 +15,7 @@ using zombie_survival_3Dgame_Server.Firearm;
 using zombie_survival_3Dgame_Server.Firearm.Configuration;
 using zombie_survival_3Dgame_Server.Gacha;
 using zombie_survival_3Dgame_Server.GameSession;
+using zombie_survival_3Dgame_Server.GameSession.Progress;
 using zombie_survival_3Dgame_Server.Inventory;
 using zombie_survival_3Dgame_Server.Options;
 using zombie_survival_3Dgame_Server.Player;
@@ -83,6 +84,27 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<PersistenceConflictExceptionHandler>();
+builder.Services.AddExceptionHandler<RedisSessionExceptionHandler>();
+builder.Services.AddOptions<RedisSessionOptions>()
+    .Bind(builder.Configuration.GetSection(RedisSessionOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.Connection), "Redis connection is required.")
+    .Validate(x => double.IsFinite(x.TimeToleranceSeconds) && x.TimeToleranceSeconds is >= 0 and <= 60,
+        "Redis time tolerance must be between 0 and 60 seconds.")
+    .Validate(x => x.EndedTtlSeconds == 30 && x.RetentionDays == 3 && x.FailureAlertSeconds is >= 5 and <= 300,
+        "Redis TTL must be 30 seconds, retention 3 days and alert delay between 5 and 300 seconds.")
+    .Validate(x => string.IsNullOrWhiteSpace(x.AlertWebhookUrl)
+        || (Uri.TryCreate(x.AlertWebhookUrl, UriKind.Absolute, out var uri) && uri.Scheme == "https"),
+        "Redis alert webhook must be an HTTPS URL.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<RedisSessionConnection>();
+builder.Services.AddSingleton<IGameSessionProgressStore, RedisGameSessionProgressStore>();
+builder.Services.AddScoped<SessionProgressValidator>();
+builder.Services.AddScoped<ISessionProgressService, SessionProgressService>();
+builder.Services.AddSingleton<RedisSessionHealthCheck>();
+builder.Services.AddHealthChecks().AddCheck<RedisSessionHealthCheck>("redis", tags: ["ready"]);
+builder.Services.AddHttpClient("RedisAlert", client => client.Timeout = TimeSpan.FromSeconds(5)).RemoveAllLoggers();
+builder.Services.AddHostedService<RedisSessionMonitor>();
+builder.Services.AddHostedService<SessionRetentionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
