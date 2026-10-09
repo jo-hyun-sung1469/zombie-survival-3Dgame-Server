@@ -12,6 +12,27 @@ namespace zombie_survival_3Dgame_Server.Tests.GameSession;
 public sealed class SurvivalGameSessionServiceTests
 {
     [Fact]
+    public async Task GetAsync_DatabaseDatesWithoutKind_ReturnsUtcDates()
+    {
+        // Given
+        using var cancellation = new CancellationTokenSource();
+        using var context = CreateContext();
+        var clock = new ManualTimeProvider();
+        var start = DateTime.SpecifyKind(clock.GetUtcNow().UtcDateTime, DateTimeKind.Unspecified);
+        var session = SurvivalGameSession.Start("player-1", start);
+        session.Complete(start.AddSeconds(100), 1, 10);
+        session.Claim(450, start.AddSeconds(100));
+        context.SurvivalGameSessions.Add(session);
+        await context.SaveChangesAsync(cancellation.Token);
+        // When
+        var response = await SessionTestServices.Session(context, clock).GetAsync("player-1", session.Id, cancellation.Token);
+        // Then
+        response!.StartedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+        response.CompletedAtUtc!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        response.ClaimedAtUtc!.Value.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Fact]
     public async Task StartAsync_ExistingActiveSession_ReturnsSameSession()
     {
         // Given
@@ -21,7 +42,7 @@ public sealed class SurvivalGameSessionServiceTests
         context.Users.Add(new AppUser { Id = "player-1" });
         await context.SaveChangesAsync(cancellationToken);
         var clock = new ManualTimeProvider();
-        var service = new SurvivalGameSessionService(context, clock);
+        var service = SessionTestServices.Session(context, clock);
         var first = await service.StartAsync("player-1", cancellationToken);
 
         // When
@@ -39,7 +60,7 @@ public sealed class SurvivalGameSessionServiceTests
         using var requestCancellation = new CancellationTokenSource();
         var cancellationToken = requestCancellation.Token;
         using var context = CreateContext();
-        var service = new SurvivalGameSessionService(context, new ManualTimeProvider());
+        var service = SessionTestServices.Session(context, new ManualTimeProvider());
 
         // When
         var result = await service.StartAsync("unknown", cancellationToken);
@@ -59,13 +80,13 @@ public sealed class SurvivalGameSessionServiceTests
         context.Users.Add(new AppUser { Id = "player-1" });
         await context.SaveChangesAsync(cancellationToken);
         var clock = new ManualTimeProvider();
-        var service = new SurvivalGameSessionService(context, clock);
+        var service = SessionTestServices.Session(context, clock);
         var started = await service.StartAsync("player-1", cancellationToken);
         clock.Advance(TimeSpan.FromSeconds(100.25));
 
         // When
         var completed = await service.CompleteAsync("player-1", started!.SessionId, 2, 10, cancellationToken);
-        var reward = await new SurvivalRewardService(context, clock)
+        var reward = await SessionTestServices.Reward(context, clock)
             .ClaimAsync("player-1", new RewardRequest { SessionId = started.SessionId, SurvivalTime = 0, ClearWave = 0, KillZombies = 0 }, cancellationToken);
 
         // Then
@@ -85,7 +106,7 @@ public sealed class SurvivalGameSessionServiceTests
         var session = SurvivalGameSession.Start("player-1", DateTime.UtcNow);
         context.SurvivalGameSessions.Add(session);
         await context.SaveChangesAsync(cancellationToken);
-        var service = new SurvivalGameSessionService(context, new ManualTimeProvider());
+        var service = SessionTestServices.Session(context, new ManualTimeProvider());
 
         // When
         var result = await service.GetAsync("player-2", session.Id, cancellationToken);
@@ -105,7 +126,7 @@ public sealed class SurvivalGameSessionServiceTests
         var session = SurvivalGameSession.Start("player-1", clock.GetUtcNow().UtcDateTime);
         context.SurvivalGameSessions.Add(session);
         await context.SaveChangesAsync(cancellationToken);
-        var service = new SurvivalGameSessionService(context, clock);
+        var service = SessionTestServices.Session(context, clock);
 
         // When
         var result = await service.CompleteAsync("player-2", session.Id, 100, 10000, cancellationToken);
@@ -126,7 +147,7 @@ public sealed class SurvivalGameSessionServiceTests
         var session = SurvivalGameSession.Start("player-1", clock.GetUtcNow().UtcDateTime);
         context.SurvivalGameSessions.Add(session);
         await context.SaveChangesAsync(cancellationToken);
-        var service = new SurvivalGameSessionService(context, clock);
+        var service = SessionTestServices.Session(context, clock);
         await service.CompleteAsync("player-1", session.Id, 2, 10, cancellationToken);
 
         // When
@@ -151,7 +172,7 @@ public sealed class SurvivalGameSessionServiceTests
         var session = SurvivalGameSession.Start("player-1", clock.GetUtcNow().UtcDateTime);
         context.SurvivalGameSessions.Add(session);
         await context.SaveChangesAsync(cancellationToken);
-        var service = new SurvivalGameSessionService(context, clock);
+        var service = SessionTestServices.Session(context, clock);
 
         // When
         var act = () => service.CompleteAsync("player-1", session.Id, clearWave, killZombies, cancellationToken);

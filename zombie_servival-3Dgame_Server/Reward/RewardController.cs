@@ -32,6 +32,8 @@ public sealed class RewardController(ISurvivalRewardService rewardService) : Con
                 StatusCodes.Status400BadRequest, "The submitted game statistics are invalid or exceed the reward limit."),
             RewardClaimStatus.GoldLimitExceeded => ApiProblemDetails.Create(
                 StatusCodes.Status409Conflict, "The reward would exceed the gold limit."),
+            RewardClaimStatus.ProgressConflict => ApiProblemDetails.Create(
+                StatusCodes.Status409Conflict, "Progress is missing or inconsistent with the recorded waves."),
             _ => throw new InvalidOperationException("Unknown reward claim status.")
         };
     }

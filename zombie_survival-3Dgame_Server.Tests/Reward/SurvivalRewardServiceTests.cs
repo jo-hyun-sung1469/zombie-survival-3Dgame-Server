@@ -1,4 +1,5 @@
 using FluentAssertions;
+using zombie_survival_3Dgame_Server.Tests.GameSession;
 using Microsoft.EntityFrameworkCore;
 using zombie_survival_3Dgame_Server.Auth.Models;
 using zombie_survival_3Dgame_Server.Data;
@@ -21,7 +22,7 @@ public sealed class SurvivalRewardServiceTests
         // Given
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: true, gold: 100, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
 
         // When
         var result = await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
@@ -45,7 +46,7 @@ public sealed class SurvivalRewardServiceTests
         // Given
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: true, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
         var first = await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
         context.ChangeTracker.Clear();
 
@@ -70,7 +71,7 @@ public sealed class SurvivalRewardServiceTests
         // Given
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: true, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
 
         // When
         var result = await service.ClaimAsync(playerId, CreateRequest(unknownSession ? "unknown" : session.Id), cancellationToken);
@@ -91,7 +92,7 @@ public sealed class SurvivalRewardServiceTests
         var session = await SeedAsync(context, completed: true, cancellationToken: cancellationToken);
         context.Users.Remove(await context.Users.SingleAsync(cancellationToken));
         await context.SaveChangesAsync(cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
 
         // When
         var result = await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
@@ -109,7 +110,7 @@ public sealed class SurvivalRewardServiceTests
         // Given
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: false, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
 
         // When
         var result = await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
@@ -130,7 +131,7 @@ public sealed class SurvivalRewardServiceTests
         // Given
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: false, gold: int.MaxValue, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
 
         // When
         var result = await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
@@ -140,7 +141,7 @@ public sealed class SurvivalRewardServiceTests
         (await context.PlayerSaveData.SingleAsync(cancellationToken)).Gold.Should().Be(int.MaxValue);
         session.ClaimedAtUtc.Should().BeNull();
         context.ChangeTracker.HasChanges().Should().BeFalse();
-        session.CompletedAtUtc.Should().BeNull();
+        session.CompletedAtUtc.Should().NotBeNull();
     }
 
     [Fact]
@@ -153,7 +154,7 @@ public sealed class SurvivalRewardServiceTests
         var session = await SeedAsync(context, completed: true, cancellationToken: cancellationToken);
         context.PlayerSaveData.Remove(await context.PlayerSaveData.SingleAsync(cancellationToken));
         await context.SaveChangesAsync(cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
 
         // When
         var result = await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
@@ -171,7 +172,7 @@ public sealed class SurvivalRewardServiceTests
         // Given
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: true, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
@@ -191,7 +192,7 @@ public sealed class SurvivalRewardServiceTests
         var cancellationToken = cancellation.Token;
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: false, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
         await service.ClaimAsync("player-1", CreateRequest(session.Id), cancellationToken);
         context.ChangeTracker.Clear();
         var changedRequest = new RewardRequest
@@ -227,7 +228,7 @@ public sealed class SurvivalRewardServiceTests
         var cancellationToken = cancellation.Token;
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: false, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context);
         var request = new RewardRequest
         {
             SessionId = session.Id, SurvivalTime = survivalTime, ClearWave = clearWave, KillZombies = killZombies
@@ -245,14 +246,14 @@ public sealed class SurvivalRewardServiceTests
     }
 
     [Fact]
-    public async Task ClaimAsync_ReportAboveTimeLimit_CapsRewardAndPreservesReportedTime()
+    public async Task ClaimAsync_ServerTimeAboveLimit_CapsRewardAndPreservesServerTime()
     {
         // Given
         using var cancellation = new CancellationTokenSource();
         var cancellationToken = cancellation.Token;
         using var context = CreateContext();
         var session = await SeedAsync(context, completed: false, cancellationToken: cancellationToken);
-        var service = new SurvivalRewardService(context, TimeProvider.System);
+        var service = SessionTestServices.Reward(context, new SessionTestServices.FixedClock(new DateTimeOffset(StartedAt.AddSeconds(3000))));
         var request = new RewardRequest
         {
             SessionId = session.Id, SurvivalTime = 3000, ClearWave = 2, KillZombies = 10
@@ -280,8 +281,8 @@ public sealed class SurvivalRewardServiceTests
         await second.SurvivalGameSessions.SingleAsync(cancellationToken);
         await second.PlayerSaveData.SingleAsync(cancellationToken);
         var request = CreateRequest(session.Id);
-        await new SurvivalRewardService(first, TimeProvider.System).ClaimAsync("player-1", request, cancellationToken);
-        var staleService = new SurvivalRewardService(second, TimeProvider.System);
+        await SessionTestServices.Reward(first).ClaimAsync("player-1", request, cancellationToken);
+        var staleService = SessionTestServices.Reward(second);
 
         // When
         var act = () => staleService.ClaimAsync("player-1", request, cancellationToken);

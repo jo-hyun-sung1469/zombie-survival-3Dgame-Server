@@ -16,6 +16,7 @@ public sealed class RewardControllerTests
     [InlineData(RewardClaimStatus.NotFound, 404)]
     [InlineData(RewardClaimStatus.InvalidInput, 400)]
     [InlineData(RewardClaimStatus.GoldLimitExceeded, 409)]
+    [InlineData(RewardClaimStatus.ProgressConflict, 409)]
     public async Task SurvivalRewardAsync_AuthenticatedPlayer_UsesClaimAndMapsStatus(
         RewardClaimStatus status, int expectedStatus)
     {

@@ -1,18 +1,25 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using zombie_survival_3Dgame_Server.Options;
+using zombie_survival_3Dgame_Server.GameSession.Progress;
 using zombie_survival_3Dgame_Server.Contracts.Reward;
 using zombie_survival_3Dgame_Server.Data;
 using zombie_survival_3Dgame_Server.Inventory.Models;
 
 namespace zombie_survival_3Dgame_Server.Reward;
 
-public sealed class SurvivalRewardService(GameDbContext dbContext, TimeProvider timeProvider) : ISurvivalRewardService
+public sealed class SurvivalRewardService(GameDbContext dbContext, TimeProvider timeProvider,
+    SessionProgressValidator validator, IGameSessionProgressStore progressStore, IOptions<RedisSessionOptions> options,
+    ILogger<SurvivalRewardService> logger) : ISurvivalRewardService
 {
     public async Task<RewardClaimResult> ClaimAsync(
         string playerId, RewardRequest request, CancellationToken cancellationToken)
     {
         var session = await dbContext.SurvivalGameSessions
             .SingleOrDefaultAsync(x => x.Id == request.SessionId && x.PlayerId == playerId, cancellationToken);
-        if (session is null || !await dbContext.Users.AnyAsync(x => x.Id == playerId, cancellationToken))
+        if (session is null || (session.CompletedAtUtc ?? session.StartedAtUtc)
+            <= timeProvider.GetUtcNow().UtcDateTime.AddDays(-options.Value.RetentionDays)
+            || !await dbContext.Users.AnyAsync(x => x.Id == playerId, cancellationToken))
         {
             return new RewardClaimResult { Status = RewardClaimStatus.NotFound };
         }
@@ -25,12 +32,25 @@ public sealed class SurvivalRewardService(GameDbContext dbContext, TimeProvider 
         }
 
         var completed = session.CompletedAtUtc.HasValue;
+        if (!completed)
+        {
+            var validation = await validator.ValidateAsync(session, request.SurvivalTime, request.ClearWave,
+                request.KillZombies, true, cancellationToken);
+            if (validation.Status != ProgressStatus.Success)
+                return new RewardClaimResult { Status = validation.Status == ProgressStatus.InvalidInput
+                    ? RewardClaimStatus.InvalidInput : RewardClaimStatus.ProgressConflict };
+            var final = validation.Progress!;
+            session.CompleteWithReportedStats(final.RecordedAtUtc, final.SurvivalTimeSeconds, final.ClearWave, final.KillZombies);
+            // Freeze results durably before shortening Redis TTL or attempting payout.
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        try { await progressStore.FinalizeTtlAsync(session, cancellationToken); }
+        catch (RedisSessionUnavailableException exception)
+        { logger.LogWarning(exception, "SQL final result is durable; Redis TTL update will be retried for {SessionId}.", session.Id); }
         int reward;
         try
         {
-            reward = completed
-                ? RewardCalculator.Calculate(session.SurvivalTimeSeconds, session.ClearWave, session.KillZombies)
-                : RewardCalculator.Calculate(request.SurvivalTime, request.ClearWave, request.KillZombies);
+            reward = RewardCalculator.Calculate(session.SurvivalTimeSeconds, session.ClearWave, session.KillZombies);
         }
         catch (ArgumentOutOfRangeException)
         {
@@ -47,11 +67,6 @@ public sealed class SurvivalRewardService(GameDbContext dbContext, TimeProvider 
         }
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        if (!completed)
-        {
-            session.CompleteWithReportedStats(now, request.SurvivalTime, request.ClearWave, request.KillZombies);
-        }
-
         if (saveData is null)
         {
             saveData = new PlayerSaveData { PlayerId = playerId };
@@ -61,7 +76,7 @@ public sealed class SurvivalRewardService(GameDbContext dbContext, TimeProvider 
         saveData.Gold = checked(currentGold + reward);
         saveData.MarkChanged(now);
         session.Claim(reward, now);
-        // Completion, claim and gold changes commit together with concurrency checks.
+        // Claim and gold changes commit together with concurrency checks.
         await dbContext.SaveChangesAsync(cancellationToken);
         return Success(reward, saveData.Gold, false);
 
@@ -74,7 +89,7 @@ public sealed class SurvivalRewardService(GameDbContext dbContext, TimeProvider 
                 PlayerId = playerId,
                 AwardedGold = awardedGold,
                 CurrentGold = gold,
-                ClaimedAtUtc = session.ClaimedAtUtc!.Value,
+                ClaimedAtUtc = DateTime.SpecifyKind(session.ClaimedAtUtc!.Value, DateTimeKind.Utc),
                 AlreadyClaimed = alreadyClaimed
             }
         };
