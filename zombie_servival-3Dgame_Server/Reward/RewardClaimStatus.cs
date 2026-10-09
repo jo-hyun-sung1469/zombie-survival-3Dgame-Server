@@ -5,5 +5,6 @@ public enum RewardClaimStatus
     Success,
     NotFound,
     InvalidInput,
-    GoldLimitExceeded
+    GoldLimitExceeded,
+    ProgressConflict
 }
