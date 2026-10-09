@@ -19,6 +19,20 @@ Gmail을 사용할 경우 `app.env`의 `SMTP_PASSWORD`에 새 Gmail 앱 비밀�
 
 ## 구성
 
+### Redis 세션 저장과 Sentinel
+
+Compose에는 Redis primary/replica 2개와 Sentinel 3개가 포함됩니다. 외부 Redis 포트는 공개하지 않으며 앱은 backend 네트워크의 Sentinel에서 현재 primary를 발견합니다. Redis 이미지는 공식 Redis 7.4.11 이미지 digest로 고정합니다. Redis 데이터와 Sentinel의 재작성 가능한 설정은 각각의 볼륨에 저장합니다. 초기 역할만 스크립트에서 설정해 승격 후 재시작 시 역할을 초기화하지 않습니다.
+
+`app.env`에 `REDIS_PASSWORD`를 추가하세요(32자 이상 무작위 영문·숫자·밑줄·하이픈). 로컬 `prepare-local-env.ps1`는 누락된 값을 자동 생성합니다. 실제 값은 출력하거나 Git에 넣지 않습니다. 설정은 `RedisSession__Credentials__Password`, `RedisSession__Credentials__SentinelPassword`로 전달합니다. 기존 볼륨의 설정에도 자격증명이 저장되므로 비밀번호 교체 시 모든 Redis/Sentinel 설정을 함께 갱신하는 운영 절차가 필요합니다.
+
+장애 알림을 받으려면 `REDIS_ALERT_WEBHOOK_URL`에 HTTPS webhook 주소를 설정합니다. payload는 `{ "text": "...", "occurredAtUtc": "..." }`이며 이 형식을 받을 수 있는 수신기를 사용합니다. Redis 접근 실패가 20초 이상 지속되면 알림을 보내고 지속 장애는 5분 간격으로 제한합니다. 복구하면 다음 장애를 새로 감지합니다. URL이 비어 있으면 오류 로그만 남습니다. readiness `/health`는 MySQL과 Redis 모두 검사하고 `/live`는 기존처럼 프로세스 생존을 검사합니다.
+
+Sentinel은 장애 시 replica를 승격하지만 비동기 복제 특성상 최근 확인된 쓰기도 유실될 수 있습니다. 같은 EC2의 컨테이너 세 개는 EC2 자체 장애를 견디지 못하므로 실제 호스트 장애 가용성에는 독립된 호스트의 Sentinel 배치가 필요합니다. [Redis Sentinel 공식 문서](https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/)
+
+Redis 장애 시 활성 진행/보상 검증은 503으로 거부하고, 유실된 기록은 클라이언트 값으로 복원하지 않습니다. MySQL에 확정한 결과는 Redis 장애 중에도 재지급 요청을 처리하며 이미 받은 보상을 추가 지급하지 않습니다. Redis·앱 서버의 UTC 시각은 동기화해야 합니다. 메모리는 인스턴스마다 256MB, `noeviction`으로 설정해 임의의 진행 기록 축출을 막습니다.
+
+배포 전 Docker가 실행된 환경에서 `deployment/scripts/test-auth-registration.ps1`를 실행하면 기존 인증 검증과 함께 실제 Redis Lua 웨이브 검증·누락/장애 거부·MySQL 동시 지급·TTL을 검사합니다. CI에도 같은 스모크 테스트를 연결했습니다. 별도의 disposable CI 구성에서는 `test-redis-failover.sh`로 primary 중단, replica 승격, 앱의 primary 연결 복구, 데이터 유지 및 이전 primary 재합류를 검사합니다. 운영 컨테이너로 장애 시험을 수행하지 마세요.
+
 - 앱: digest로 고정한 .NET 10 SDK/runtime, linux/amd64, 비루트 UID 1654, 포트 8080
 - DB: digest로 고정한 `mysql:8.4.10`, 외부 3306 포트 미공개
 - 공개 프록시: digest로 고정한 `caddy:2.11.4-alpine`, TCP 80/443 및 HTTP/3용 UDP 443

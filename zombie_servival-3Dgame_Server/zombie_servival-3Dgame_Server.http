@@ -1,3 +1,5 @@
+@survivalTime = 0
+# Set survivalTime to seconds elapsed since the server session started before each report.
 @zombie_servival_3Dgame_Server_HostAddress = https://localhost:7037
 @sessionId = replace-with-server-created-session-id
 
@@ -127,15 +129,54 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
+# Report completed wave 1; update survivalTime before sending.
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/game-sessions/{{sessionId}}/waves
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "clearWave": 1,
+  "killZombies": 10,
+  "survivalTimeSeconds": {{survivalTime}}
+}
+
+###
+
+# Report completed wave 2; update survivalTime before sending.
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/game-sessions/{{sessionId}}/waves
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "clearWave": 2,
+  "killZombies": 20,
+  "survivalTimeSeconds": {{survivalTime}}
+}
+
+###
+
+# Report completed wave 3; update survivalTime before sending.
+POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/game-sessions/{{sessionId}}/waves
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "clearWave": 3,
+  "killZombies": 30,
+  "survivalTimeSeconds": {{survivalTime}}
+}
+
+###
+
 # Submit the game result. Retry with this same sessionId and body.
-# The server does not verify the truth of these client-reported statistics.
+# The server checks recorded waves and elapsed time; actual combat is not observed.
 POST {{zombie_servival_3Dgame_Server_HostAddress}}/api/rewards/survival
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
   "sessionId": "{{sessionId}}",
-  "survivalTime": 120.5,
+  "survivalTime": {{survivalTime}},
   "clearWave": 3,
   "killZombies": 40
 }
@@ -149,7 +190,7 @@ Content-Type: application/json
 
 {
   "sessionId": "{{sessionId}}",
-  "survivalTime": 120.5,
+  "survivalTime": {{survivalTime}},
   "clearWave": 3,
   "killZombies": 40
 }
