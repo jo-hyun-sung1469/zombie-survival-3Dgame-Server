@@ -86,6 +86,8 @@ validate_staging_directory() {
     deployment/scripts/deploy.sh
     deployment/scripts/check-migration-readiness.sh
     deployment/scripts/migration-common.sh
+    deployment/redis/start.sh
+    deployment/redis/sentinel.sh
   )
 
   if ! validate_staging_directory_path "$staged_deployment_directory"; then
@@ -1178,6 +1180,10 @@ prepare_deployment() {
     echo "MySQL이 제한 시간 안에 healthy 상태가 되지 않았습니다." >&2
     return 1
   fi
+
+  # App deployment uses --no-deps; Redis must be started explicitly first.
+  APP_IMAGE="$DEPLOY_APP_IMAGE" BACKUP_IMAGE="$DEPLOY_BACKUP_IMAGE" "${compose[@]}" up \
+    -d --wait --wait-timeout 120 redis-primary redis-replica redis-sentinel-1 redis-sentinel-2 redis-sentinel-3
 
   echo "EF Migration 적용 가능 여부를 확인합니다."
   APP_ENV_FILE="$app_env_file" bash deployment/scripts/check-migration-readiness.sh

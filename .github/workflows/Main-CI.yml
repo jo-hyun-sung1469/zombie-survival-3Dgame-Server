@@ -39,6 +39,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Generate disposable Redis credential
+        run: |
+          credential="$(openssl rand -hex 32)"
+          echo "::add-mask::$credential"
+          printf 'REDIS_PASSWORD=%s\n' "$credential" >> "$GITHUB_ENV"
+
       - name: Checkout source code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,7 +99,10 @@ jobs:
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Validate deployment shell scripts
-        run: bash -n deployment/backup/*.sh deployment/duckdns/*.sh deployment/scripts/*.sh
+        run: |
+          for script in deployment/backup/*.sh deployment/duckdns/*.sh deployment/redis/*.sh deployment/scripts/*.sh; do
+            bash -n "$script"
+          done
 
       - name: Enforce expand-first EF migrations
         run: bash deployment/scripts/check-expand-only-migrations.sh
@@ -122,6 +131,9 @@ jobs:
 
       - name: Start disposable production topology
         run: docker compose --env-file app.env.example up --detach --wait --wait-timeout 180 mysql app caddy
+
+      - name: Test Sentinel failover in disposable topology
+        run: REDIS_FAILOVER_TEST=disposable bash deployment/scripts/test-redis-failover.sh
 
       - name: Verify direct and proxied health contracts
         run: |

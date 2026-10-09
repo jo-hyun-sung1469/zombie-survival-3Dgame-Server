@@ -51,6 +51,8 @@ jobs:
 
       - name: Validate Docker Compose
         run: |
+          REDIS_PASSWORD="$(openssl rand -hex 32)"
+          export REDIS_PASSWORD
           MYSQL_PASSWORD="$(openssl rand -hex 24)"
           MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
           JWT_SECRET_KEY="$(openssl rand -hex 32)"
@@ -71,7 +73,10 @@ jobs:
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Validate deployment shell scripts
-        run: bash -n deployment/backup/*.sh deployment/duckdns/*.sh deployment/scripts/*.sh
+        run: |
+          for script in deployment/backup/*.sh deployment/duckdns/*.sh deployment/redis/*.sh deployment/scripts/*.sh; do
+            bash -n "$script"
+          done
 
       - name: Enforce expand-first EF migrations
         run: bash deployment/scripts/check-expand-only-migrations.sh

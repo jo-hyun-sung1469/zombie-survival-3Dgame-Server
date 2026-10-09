@@ -9,6 +9,8 @@ $runId = [Guid]::NewGuid().ToString('N')
 $resourcePrefix = "zombie-auth-smoke-$runId"
 $databaseContainer = "$resourcePrefix-db"
 $appContainer = "$resourcePrefix-app"
+$redisContainer = "$resourcePrefix-redis"
+$redisCredential = [Guid]::NewGuid().ToString('N')
 $networkName = "$resourcePrefix-network"
 $databaseCredential = [Guid]::NewGuid().ToString('N')
 $rootCredential = [Guid]::NewGuid().ToString('N')
@@ -153,6 +155,55 @@ function Assert-Unconsumed([string]$Proof) {
     Assert-That ($remaining -eq '1') 'Failed registration preserves verification and its version.'
 }
 
+function Invoke-SessionSmoke([string]$Bearer) {
+    $started = Invoke-Api 'POST' '/api/game-sessions' $null $Bearer
+    Assert-That ($started.Status -eq 200) 'Game session starts with a server-issued id.'
+    $id = $started.Body.sessionId
+    $startTime = [DateTimeOffset]::Parse($started.Body.startedAtUtc)
+    $playerId = Invoke-TestSql "SELECT PlayerId FROM SurvivalGameSessions WHERE Id='$id';"
+    $initialGold = [int](Invoke-TestSql "SELECT Gold FROM PlayerSaveData WHERE PlayerId='$playerId';")
+    $seconds = [Math]::Max(0, ([DateTimeOffset]::UtcNow - $startTime).TotalSeconds)
+    $skipped = Invoke-Api 'POST' "/api/game-sessions/$id/waves" `
+        @{ clearWave = 2; killZombies = 10; survivalTimeSeconds = $seconds } $Bearer
+    Assert-That ($skipped.Status -eq 409) 'Redis rejects a skipped wave.'
+    $seconds = [Math]::Max(0, ([DateTimeOffset]::UtcNow - $startTime).TotalSeconds)
+    $wave = @{ clearWave = 1; killZombies = 10; survivalTimeSeconds = $seconds }
+    Assert-That ((Invoke-Api 'POST' "/api/game-sessions/$id/waves" $wave $Bearer).Status -eq 200) 'Redis stores wave one.'
+    Assert-That ((Invoke-Api 'POST' "/api/game-sessions/$id/waves" $wave $Bearer).Status -eq 409) 'Duplicate wave does not advance progress.'
+    $progress = Invoke-Api 'GET' "/api/game-sessions/$id" $null $Bearer
+    Assert-That ($progress.Body.clearWave -eq 1 -and $progress.Body.killZombies -eq 10) 'Session query reads Redis progress.'
+    $seconds = [Math]::Max(0, ([DateTimeOffset]::UtcNow - $startTime).TotalSeconds)
+    $report = @{ sessionId = $id; clearWave = 1; killZombies = 9; survivalTime = $seconds }
+    Assert-That ((Invoke-Api 'POST' '/api/rewards/survival' $report $Bearer).Status -eq 409) 'Final kill count cannot decrease.'
+    $report.killZombies = 14
+    $report.survivalTime = [Math]::Max(0, ([DateTimeOffset]::UtcNow - $startTime).TotalSeconds)
+    $pendingFirst = Start-Api 'POST' '/api/rewards/survival' $report $Bearer
+    $pendingSecond = Start-Api 'POST' '/api/rewards/survival' $report $Bearer
+    $first = Complete-Api $pendingFirst
+    $second = Complete-Api $pendingSecond
+    Assert-That (($first.Status -eq 200 -or $second.Status -eq 200) -and
+        $first.Status -in 200,409 -and $second.Status -in 200,409) 'Concurrent reward requests succeed or reject stale state.'
+    $replay = Invoke-Api 'POST' '/api/rewards/survival' $report $Bearer
+    Assert-That ($replay.Status -eq 200 -and $replay.Body.alreadyClaimed) 'Reward replay is idempotent.'
+    $currentGold = [int](Invoke-TestSql "SELECT Gold FROM PlayerSaveData WHERE PlayerId='$playerId';")
+    Assert-That ($currentGold -eq $initialGold + $replay.Body.awardedGold) 'MySQL gold is incremented exactly once.'
+    $ttl = [int](Invoke-Docker exec -e "REDISCLI_AUTH=$redisCredential" $redisContainer redis-cli TTL "game-session:${playerId}:$id")
+    Assert-That ($ttl -ge 0 -and $ttl -le 30) 'Final Redis record expires within thirty seconds.'
+    $next = Invoke-Api 'POST' '/api/game-sessions' $null $Bearer
+    $nextId = $next.Body.sessionId
+    $oldExists = Invoke-Docker exec -e "REDISCLI_AUTH=$redisCredential" $redisContainer redis-cli EXISTS "game-session:${playerId}:$id"
+    Assert-That ($oldExists -eq '0') 'Starting another game removes the previous final cache.'
+    Invoke-Docker exec -e "REDISCLI_AUTH=$redisCredential" $redisContainer redis-cli DEL "game-session:${playerId}:$nextId" | Out-Null
+    $nextReport = @{ sessionId = $nextId; clearWave = 0; killZombies = 0; survivalTime = 0 }
+    Assert-That ((Invoke-Api 'POST' '/api/rewards/survival' $nextReport $Bearer).Status -eq 409) 'Missing Redis progress cannot be rewarded.'
+    Invoke-Docker stop $redisContainer | Out-Null
+    Assert-That ((Invoke-Api 'POST' '/api/rewards/survival' $nextReport $Bearer).Status -eq 503) 'Redis outage refuses unverified rewards.'
+    Assert-That ((Invoke-Api 'POST' '/api/rewards/survival' $report $Bearer).Body.alreadyClaimed) 'Paid SQL result remains replayable during Redis outage.'
+    Invoke-Docker start $redisContainer | Out-Null
+    Wait-TestApp
+    Write-Host 'PASS: Redis wave rules, final DTO, MySQL concurrent payout, TTL, cache loss and outage.'
+}
+
 function Remove-OwnedResource([string]$Kind, [string]$Name) {
     $ErrorActionPreference = 'Continue'
     $labelPath = if ($Kind -eq 'network') { '.Labels.auth_smoke_run' } else { '.Config.Labels.auth_smoke_run' }
@@ -170,6 +221,10 @@ try {
         Invoke-Docker build --label "auth_smoke_run=$runId" --tag $AppImage --file (Join-Path $repoRoot 'Dockerfile') $repoRoot | Out-Null
     }
     $networkCidr = New-TestNetwork
+    Invoke-Docker run --detach --name $redisContainer --label "auth_smoke_run=$runId" `
+        --network $networkName --network-alias redis `
+        redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499 `
+        redis-server --requirepass $redisCredential | Out-Null
     Invoke-Docker run --detach --name $databaseContainer --label "auth_smoke_run=$runId" `
         --network $networkName --network-alias mysql `
         -e "MYSQL_ROOT_PASSWORD=$rootCredential" -e MYSQL_DATABASE=auth_smoke `
@@ -192,6 +247,7 @@ try {
         --network $networkName --publish '127.0.0.1::8080' `
         -e ASPNETCORE_ENVIRONMENT=Production -e Database__Host=mysql -e Database__Port=3306 `
         -e "ReverseProxy__KnownNetworkCidr=$networkCidr" `
+        -e RedisSession__Connection=redis:6379 -e "RedisSession__Credentials__Password=$redisCredential" `
         -e Database__Name=auth_smoke -e Database__User=auth_smoke_user `
         -e "Database__Credential=$databaseCredential" -e Database__SslMode=Disabled `
         -e "Jwt__SecretKey=$signingKey" -e SmtpEmail__Host=unused.invalid `
@@ -235,6 +291,7 @@ try {
     Invoke-TestSql "UPDATE Users SET UserName='Legacy_Player' WHERE UserName='retryuser';" | Out-Null
     $legacyLogin = Invoke-Api 'POST' '/api/auth/login' @{ userName = 'Legacy_Player'; 'password' = $examplePassword }
     Assert-That ($legacyLogin.Status -eq 200) 'Existing usernames outside the new policy still log in.'
+    Invoke-SessionSmoke $legacyLogin.Body.accessToken
     Write-Host 'PASS: username race, verification reuse, login, JWT and legacy username.'
 
     Restart-TestApp
@@ -297,6 +354,7 @@ finally {
     $client.Dispose()
     Remove-OwnedResource 'container' $appContainer
     Remove-OwnedResource 'container' $databaseContainer
+    Remove-OwnedResource 'container' $redisContainer
     Remove-OwnedResource 'network' $networkName
     if ($ownsImage) { Remove-OwnedResource 'image' $AppImage }
 }

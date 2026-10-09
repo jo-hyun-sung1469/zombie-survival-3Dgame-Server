@@ -36,6 +36,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      redis-primary:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+      redis-sentinel-1:
+        condition: service_healthy
+      redis-sentinel-2:
+        condition: service_healthy
+      redis-sentinel-3:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_HTTP_PORTS: 8080
@@ -54,6 +64,11 @@ services:
       SmtpEmail__FromAddress: ${SMTP_FROM_ADDRESS:?SMTP_FROM_ADDRESS is required}
       SmtpEmail__FromName: ${SMTP_FROM_NAME:-Zombie Survival}
       ReverseProxy__KnownNetworkCidr: ${FRONTEND_SUBNET:-172.29.0.0/24}
+      RedisSession__Connection: redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379
+      RedisSession__Credentials__Password: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      RedisSession__Credentials__SentinelPassword: ${REDIS_PASSWORD}
+      RedisSession__ServiceName: game-primary
+      RedisSession__AlertWebhookUrl: ${REDIS_ALERT_WEBHOOK_URL:-}
       TZ: UTC
     ports:
       - "127.0.0.1:${APP_HOST_PORT:-5000}:8080"
@@ -66,6 +81,84 @@ services:
     networks:
       - frontend
       - backend
+
+  redis-primary:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      REDIS_HOSTNAME: redis-primary
+    command: ["sh", "/scripts/start.sh"]
+    volumes:
+      - ./deployment/redis/start.sh:/scripts/start.sh:ro
+      - redis_primary_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  redis-replica:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
+    restart: unless-stopped
+    depends_on:
+      redis-primary:
+        condition: service_healthy
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_HOSTNAME: redis-replica
+      REDIS_ROLE: replica
+    command: ["sh", "/scripts/start.sh"]
+    volumes:
+      - ./deployment/redis/start.sh:/scripts/start.sh:ro
+      - redis_replica_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  redis-sentinel-1: &redis-sentinel
+    image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
+    restart: unless-stopped
+    depends_on:
+      redis-primary:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SENTINEL_HOSTNAME: redis-sentinel-1
+    command: ["sh", "/scripts/sentinel.sh"]
+    volumes:
+      - ./deployment/redis/sentinel.sh:/scripts/sentinel.sh:ro
+      - redis_sentinel_1_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli -p 26379 ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  redis-sentinel-2:
+    <<: *redis-sentinel
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SENTINEL_HOSTNAME: redis-sentinel-2
+    volumes:
+      - ./deployment/redis/sentinel.sh:/scripts/sentinel.sh:ro
+      - redis_sentinel_2_data:/data
+
+  redis-sentinel-3:
+    <<: *redis-sentinel
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SENTINEL_HOSTNAME: redis-sentinel-3
+    volumes:
+      - ./deployment/redis/sentinel.sh:/scripts/sentinel.sh:ro
+      - redis_sentinel_3_data:/data
 
   caddy:
     image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
@@ -154,6 +247,11 @@ services:
       - backend
 
 volumes:
+  redis_primary_data:
+  redis_replica_data:
+  redis_sentinel_1_data:
+  redis_sentinel_2_data:
+  redis_sentinel_3_data:
   mysql_data:
     name: zombie_survival_mysql_data
   backup_tmp:

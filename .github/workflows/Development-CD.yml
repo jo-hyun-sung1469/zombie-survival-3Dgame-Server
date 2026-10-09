@@ -39,6 +39,12 @@ jobs:
       BACKUP_IMAGE: zombie-survival-mysql-backup:deployment-validation
 
     steps:
+      - name: Generate disposable Redis credential
+        run: |
+          credential="$(openssl rand -hex 32)"
+          echo "::add-mask::$credential"
+          printf 'REDIS_PASSWORD=%s\n' "$credential" >> "$GITHUB_ENV"
+
       - name: Checkout source code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,6 +58,9 @@ jobs:
 
       - name: Start disposable deployment
         run: docker compose --env-file app.env.example up --detach --wait --wait-timeout 180 mysql app caddy
+
+      - name: Test Sentinel failover in disposable topology
+        run: REDIS_FAILOVER_TEST=disposable bash deployment/scripts/test-redis-failover.sh
 
       - name: Verify application health endpoint
         run: |

@@ -179,6 +179,12 @@ case "$command_name" in
       up)
         service="${*: -1}"
         case "$service" in
+          redis-sentinel-3)
+            if [[ -f "${state}/fail-redis-once" ]]; then
+              rm -f "${state}/fail-redis-once"
+              exit 1
+            fi
+            ;;
           mysql)
             set_container game-mysql mysql:mock healthy
             ;;
@@ -276,7 +282,9 @@ create_candidate() {
   local stage_root="${workspace}/${stage}"
 
   mkdir -m 700 "$stage_root"
-  mkdir -p "${stage_root}/deployment/scripts" "${stage_root}/deployment/caddy"
+  mkdir -p "${stage_root}/deployment/scripts" "${stage_root}/deployment/caddy" "${stage_root}/deployment/redis"
+  cp "${script_directory}/../redis/start.sh" "${stage_root}/deployment/redis/start.sh"
+  cp "${script_directory}/../redis/sentinel.sh" "${stage_root}/deployment/redis/sentinel.sh"
   cp "${script_directory}/deploy.sh" "${stage_root}/deployment/scripts/deploy.sh"
   cp "${script_directory}/check-migration-readiness.sh" "${stage_root}/deployment/scripts/check-migration-readiness.sh"
   cp "${script_directory}/migration-common.sh" "${stage_root}/deployment/scripts/migration-common.sh"
@@ -409,6 +417,10 @@ assert_rolled_back() {
 success_workspace="$(create_scenario success 172.28.0.0/24)"
 success_backup_inode="$(backup_inode "$success_workspace")"
 run_deploy "$success_workspace" "$primary_stage" prepare >/dev/null
+if ! grep -q 'up -d --wait --wait-timeout 120 redis-primary redis-replica redis-sentinel-1 redis-sentinel-2 redis-sentinel-3' "${success_workspace}/mock-state/commands.log"; then
+  echo "Redis 준비 단계를 건너뛴 배포가 허용되었습니다." >&2
+  exit 1
+fi
 assert_equals candidate-app:2 "$(cat "${success_workspace}/mock-state/game-server.image")" "후보 앱이 준비되지 않았습니다"
 assert_equals candidate-compose-2 "$(tr -d '\r\n' < "${success_workspace}/compose.yaml")" "후보 Compose가 승격되지 않았습니다"
 assert_equals 172.29.0.0/24 "$(cat "${success_workspace}/mock-state/frontend.subnet")" "frontend CIDR이 마이그레이션되지 않았습니다"
@@ -634,4 +646,12 @@ run_deploy "$stale_lock_workspace" "$primary_stage" prepare >/dev/null
 run_deploy "$stale_lock_workspace" "$primary_stage" rollback >/dev/null
 assert_rolled_back "$stale_lock_workspace" "$stale_lock_inode"
 
-echo "고유 staging 승격, backups 보존, 잠금 및 prepare/confirm/rollback 통합 테스트가 통과했습니다."
+redis_failure_workspace="$(create_scenario redis-unavailable)"
+touch "${redis_failure_workspace}/mock-state/fail-redis-once"
+if run_deploy "$redis_failure_workspace" "$primary_stage" prepare >/dev/null 2>&1; then
+  echo "Redis 준비 실패에도 앱 배포가 허용되었습니다." >&2
+  exit 1
+fi
+assert_equals old-app:1 "$(cat "${redis_failure_workspace}/mock-state/game-server.image")" "Redis 실패 중 기존 앱이 변경되었습니다"
+
+echo "고유 staging 승격, backups 보존, 잠금, Redis 준비 및 prepare/confirm/rollback 통합 테스트가 통과했습니다."

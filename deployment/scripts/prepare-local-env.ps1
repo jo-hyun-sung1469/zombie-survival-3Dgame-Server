@@ -62,6 +62,7 @@ $secretDefinitions = @{
     MYSQL_PASSWORD = 32
     MYSQL_ROOT_PASSWORD = 32
     JWT_SECRET_KEY = 64
+    REDIS_PASSWORD = 32
 }
 
 foreach ($entry in $secretDefinitions.GetEnumerator())

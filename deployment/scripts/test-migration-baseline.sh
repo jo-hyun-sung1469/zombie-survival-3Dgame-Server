@@ -6,6 +6,8 @@ test_suffix="$$"
 network_name="migration-baseline-test-${test_suffix}"
 mysql_container_name="migration-baseline-mysql-${test_suffix}"
 app_container_name="migration-baseline-app-${test_suffix}"
+redis_container_name="migration-baseline-redis-${test_suffix}"
+redis_credential="$(openssl rand -hex 32)"
 mysql_database="migration_baseline_test"
 mysql_user="migration_test_user"
 mysql_password="migration_test_password"
@@ -16,6 +18,7 @@ environment_file="${temporary_directory}/app.env"
 cleanup() {
   docker container rm --force "$app_container_name" >/dev/null 2>&1 || true
   docker container rm --force "$mysql_container_name" >/dev/null 2>&1 || true
+  docker container rm --force "$redis_container_name" >/dev/null 2>&1 || true
   docker network rm "$network_name" >/dev/null 2>&1 || true
   find "$temporary_directory" -type f -delete 2>/dev/null || true
   find "$temporary_directory" -depth -type d -empty -delete 2>/dev/null || true
@@ -73,6 +76,9 @@ printf '%s\n' \
   > "$environment_file"
 
 docker network create "$network_name" >/dev/null
+docker run --detach --name "$redis_container_name" --network "$network_name" --network-alias redis \
+  redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499 \
+  redis-server --requirepass "$redis_credential" >/dev/null
 docker run --detach \
   --name "$mysql_container_name" \
   --network "$network_name" \
@@ -94,6 +100,8 @@ docker run --detach \
   --network "$network_name" \
   -e ASPNETCORE_ENVIRONMENT=Production \
   -e Database__Host=mysql \
+  -e RedisSession__Connection=redis:6379 \
+  -e "RedisSession__Credentials__Password=${redis_credential}" \
   -e Database__Port=3306 \
   -e "Database__Name=${mysql_database}" \
   -e "Database__User=${mysql_user}" \
@@ -116,10 +124,17 @@ if ! wait_for_app; then
 fi
 
 docker container rm --force "$app_container_name" >/dev/null
+# Build the legacy fixture in a separate empty database, preserving the current schema.
+mysql_database="migration_baseline_legacy_test"
+docker exec -e "MYSQL_PWD=${mysql_root_password}" "$mysql_container_name" \
+  mysql --protocol=tcp --host=127.0.0.1 --user=root \
+  --execute="CREATE DATABASE \`${mysql_database}\`; GRANT ALL PRIVILEGES ON \`${mysql_database}\`.* TO '${mysql_user}'@'%';"
+printf '%s\n' "MYSQL_DATABASE=${mysql_database}" "MYSQL_USER=${mysql_user}" "MYSQL_PASSWORD=${mysql_password}" > "$environment_file"
+dotnet tool run dotnet-ef migrations script 0 InitialCreate \
+  --project "${script_directory}/../../zombie_servival-3Dgame_Server/zombie_survival-3Dgame_Server.csproj" \
+  --configuration Release --no-build --output "${temporary_directory}/initial-schema.sql"
+mysql_exec --default-character-set=utf8mb4 < "${temporary_directory}/initial-schema.sql"
 mysql_exec --execute="DELETE FROM \`__EFMigrationsHistory\`;"
-mysql_exec --execute="
-  ALTER TABLE \`PlayerSaveData\` DROP COLUMN \`Version\`;
-  ALTER TABLE \`AuthVerificationCodes\` DROP COLUMN \`Version\`;"
 
 if MYSQL_CONTAINER_NAME="$mysql_container_name" \
   APP_ENV_FILE="$environment_file" \
@@ -168,6 +183,8 @@ docker run --detach \
   --network "$network_name" \
   -e ASPNETCORE_ENVIRONMENT=Production \
   -e Database__Host=mysql \
+  -e RedisSession__Connection=redis:6379 \
+  -e "RedisSession__Credentials__Password=${redis_credential}" \
   -e Database__Port=3306 \
   -e "Database__Name=${mysql_database}" \
   -e "Database__User=${mysql_user}" \
