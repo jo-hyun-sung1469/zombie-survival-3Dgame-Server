@@ -27,6 +27,8 @@ public sealed class GameDbContext(DbContextOptions<GameDbContext> options) : DbC
             entity.Property(x => x.ActivePlayerId).HasMaxLength(64);
             entity.HasIndex(x => x.ActivePlayerId).IsUnique();
             entity.HasIndex(x => new { x.PlayerId, x.StartedAtUtc });
+            entity.HasIndex(x => x.CompletedAtUtc);
+            entity.HasIndex(x => x.StartedAtUtc);
             entity.Property(x => x.Version).IsConcurrencyToken().IsRequired();
             entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.PlayerId)
                 .OnDelete(DeleteBehavior.Cascade);

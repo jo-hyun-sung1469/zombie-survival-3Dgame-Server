@@ -26,7 +26,8 @@ public sealed class SurvivalGameSession
             Id = Guid.NewGuid().ToString("N"),
             PlayerId = playerId,
             ActivePlayerId = playerId,
-            StartedAtUtc = startedAtUtc
+            // MySQL datetime(6) stores microseconds; Redis must use the same timestamp.
+            StartedAtUtc = new DateTime(startedAtUtc.Ticks - startedAtUtc.Ticks % 10, DateTimeKind.Utc)
         };
     }
 
